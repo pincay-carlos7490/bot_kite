@@ -2,7 +2,17 @@ const fs = require('node:fs');
 const path = require('node:path');
 const { Client, Collection, GatewayIntentBits } = require('discord.js');
 const { initTempBanChecker } = require('./utils/tempbans');
+const http = require('node:http');
 require('dotenv').config();
+
+// Servidor HTTP web para compatibilidad con hosting gratuito 24/7 (Render Web Service)
+const port = process.env.PORT || 3000;
+http.createServer((req, res) => {
+  res.writeHead(200, { 'Content-Type': 'text/plain' });
+  res.end('🤖 Bot KITE en línea 24/7');
+}).listen(port, () => {
+  console.log(`🌐 Servidor Web activo en puerto ${port}`);
+});
 
 // Inicializar el cliente del bot con los Intents necesarios
 const client = new Client({
