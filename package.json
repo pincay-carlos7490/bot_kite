@@ -23,6 +23,7 @@
     "gif-encoder-2": "^1.0.5",
     "mongoose": "^9.9.2",
     "omggif": "^1.0.10",
+    "opusscript": "^0.0.8",
     "play-dl": "^1.9.7",
     "tweetnacl": "^1.0.3"
   }

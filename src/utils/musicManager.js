@@ -29,27 +29,47 @@ function getQueue(guildId) {
 }
 
 async function getAudioStream(song) {
+  let rawStream = null;
+  let inputType = null;
+
   // 1. Si el enlace es de SoundCloud
   if (song.url && song.url.includes('soundcloud.com')) {
     const pdlStream = await play.stream(song.url);
-    return createAudioResource(pdlStream.stream, { inputType: pdlStream.type });
-  }
-
-  // 2. Transmitir usando la búsqueda de SoundCloud para evitar bloqueos de IP de YouTube
-  try {
-    const scResults = await play.search(song.title, { source: { soundcloud: 'tracks' }, limit: 1 });
-    if (scResults && scResults.length > 0) {
-      console.log(`✅ Transmitiendo "${scResults[0].name}" desde fuente libre de bloqueos de IP.`);
-      const pdlStream = await play.stream(scResults[0].url);
-      return createAudioResource(pdlStream.stream, { inputType: pdlStream.type });
+    rawStream = pdlStream.stream;
+    inputType = pdlStream.type;
+  } else {
+    // 2. Transmitir usando la búsqueda de SoundCloud para evitar bloqueos de IP de YouTube
+    try {
+      const scResults = await play.search(song.title, { source: { soundcloud: 'tracks' }, limit: 1 });
+      if (scResults && scResults.length > 0) {
+        console.log(`✅ Transmitiendo "${scResults[0].name}" desde fuente de alta fidelidad.`);
+        const pdlStream = await play.stream(scResults[0].url);
+        rawStream = pdlStream.stream;
+        inputType = pdlStream.type;
+      }
+    } catch (err) {
+      console.error('Error en motor SoundCloud:', err.message);
     }
-  } catch (err) {
-    console.error('Error en motor SoundCloud:', err.message);
   }
 
-  // 3. Respaldo directo si es enlace directo o YouTube
-  const pdlStream = await play.stream(song.url);
-  return createAudioResource(pdlStream.stream, { inputType: pdlStream.type });
+  if (!rawStream) {
+    const pdlStream = await play.stream(song.url);
+    rawStream = pdlStream.stream;
+    inputType = pdlStream.type;
+  }
+
+  // 3. Crear recurso de audio con control de volumen activado para eliminar la saturación
+  const resource = createAudioResource(rawStream, { 
+    inputType: inputType,
+    inlineVolume: true 
+  });
+
+  // Ajustar el volumen al 75% para eliminar el clipping / sonido saturado y entrecortado
+  if (resource.volume) {
+    resource.volume.setVolume(0.75);
+  }
+
+  return resource;
 }
 
 async function playNextSong(guildId) {
