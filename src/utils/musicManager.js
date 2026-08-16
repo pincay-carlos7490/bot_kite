@@ -10,6 +10,20 @@ const play = require('play-dl');
 
 const queues = new Map();
 
+async function initMusicEngine() {
+  try {
+    const clientID = await play.getFreeClientID();
+    await play.setToken({
+      soundcloud: {
+        client_id: clientID
+      }
+    });
+    console.log('✅ Motor de audio SoundCloud/YouTube inicializado correctamente.');
+  } catch (err) {
+    console.log('Aviso: No se pudo obtener el client ID gratuito de SoundCloud:', err.message);
+  }
+}
+
 function getQueue(guildId) {
   return queues.get(guildId) || null;
 }
@@ -33,7 +47,7 @@ async function getAudioStream(song) {
     console.error('Error en motor SoundCloud:', err.message);
   }
 
-  // 3. Respaldo directo si es enlace directo o fallback
+  // 3. Respaldo directo si es enlace directo o YouTube
   const pdlStream = await play.stream(song.url);
   return createAudioResource(pdlStream.stream, { inputType: pdlStream.type });
 }
@@ -146,4 +160,5 @@ module.exports = {
   getQueue,
   createServerQueue,
   playNextSong,
+  initMusicEngine,
 };
