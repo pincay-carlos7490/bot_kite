@@ -15,27 +15,49 @@ function getQueue(guildId) {
   return queues.get(guildId) || null;
 }
 
-async function getAudioStream(url) {
-  // 1. Intentar primero con @distube/ytdl-core (diseñado para evitar bloqueos de IP en la nube)
-  try {
-    const stream = ytdl(url, {
-      filter: 'audioonly',
-      highWaterMark: 1 << 25,
-      quality: 'highestaudio',
-      requestOptions: {
-        headers: {
-          'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36'
+async function getAudioStream(song) {
+  // 1. Intentar primero con la URL de YouTube si está disponible
+  if (song.url && (song.url.includes('youtube.com') || song.url.includes('youtu.be'))) {
+    try {
+      const stream = ytdl(song.url, {
+        filter: 'audioonly',
+        highWaterMark: 1 << 25,
+        quality: 'highestaudio',
+        requestOptions: {
+          headers: {
+            'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36'
+          }
         }
-      }
-    });
-    return createAudioResource(stream);
-  } catch (err) {
-    console.log('Fallo ytdl-core, intentando con play-dl...', err.message);
+      });
+      return createAudioResource(stream);
+    } catch (err) {
+      console.log(`⚠️ YouTube bloqueó IP de Render para "${song.title}", pasando a motor SoundCloud...`);
+    }
+
+    try {
+      const pdlStream = await play.stream(song.url);
+      return createAudioResource(pdlStream.stream, { inputType: pdlStream.type });
+    } catch (err) {
+      console.log(`⚠️ Falló play-dl YouTube, buscando automáticamente en SoundCloud...`);
+    }
+  } else if (song.url && song.url.includes('soundcloud.com')) {
+    const pdlStream = await play.stream(song.url);
+    return createAudioResource(pdlStream.stream, { inputType: pdlStream.type });
   }
 
-  // 2. Respaldo con play-dl para SoundCloud o fuentes alternativas
-  const pdlStream = await play.stream(url);
-  return createAudioResource(pdlStream.stream, { inputType: pdlStream.type });
+  // 2. Respaldo Automático Anti-Bloqueos: Buscar y transmitir el mismo título en SoundCloud (Sin bloqueos de IP en la nube)
+  try {
+    const scResults = await play.search(song.title, { source: { soundcloud: 'tracks' }, limit: 1 });
+    if (scResults && scResults.length > 0) {
+      console.log(`✅ Transmitiendo "${song.title}" desde fuente libre de bloqueos.`);
+      const pdlStream = await play.stream(scResults[0].url);
+      return createAudioResource(pdlStream.stream, { inputType: pdlStream.type });
+    }
+  } catch (scErr) {
+    console.error('Error en respaldo SoundCloud:', scErr);
+  }
+
+  throw new Error('No se pudo obtener el audio de ninguna fuente disponible.');
 }
 
 async function playNextSong(guildId) {
@@ -65,7 +87,7 @@ async function playNextSong(guildId) {
   const currentSong = queue.songs[0];
 
   try {
-    const resource = await getAudioStream(currentSong.url);
+    const resource = await getAudioStream(currentSong);
     queue.player.play(resource);
     queue.playing = true;
 
@@ -78,7 +100,7 @@ async function playNextSong(guildId) {
     console.error(`Error al reproducir ${currentSong.title}:`, error);
     if (queue.textChannel) {
       queue.textChannel.send({ 
-        content: `❌ No se pudo reproducir **${currentSong.title}** debido a restricciones de YouTube. Saltando a la siguiente...` 
+        content: `❌ No se pudo transmitir **${currentSong.title}**. Saltando a la siguiente...` 
       }).catch(() => null);
     }
     queue.songs.shift();
