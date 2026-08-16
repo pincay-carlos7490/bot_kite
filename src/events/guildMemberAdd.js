@@ -1,11 +1,11 @@
 const { Events } = require('discord.js');
-const { getWelcomeConfig } = require('../utils/welcomeStore');
+const { getWelcomeConfigAsync } = require('../utils/welcomeStore');
 const { generateWelcomeImage } = require('../utils/welcomeCanvas');
 
 module.exports = {
   name: Events.GuildMemberAdd,
   async execute(member) {
-    const config = getWelcomeConfig(member.guild.id);
+    const config = await getWelcomeConfigAsync(member.guild.id);
     if (!config || !config.enabled || !config.channelId) return;
 
     const channel = member.guild.channels.cache.get(config.channelId);

@@ -1,54 +1,85 @@
 const fs = require('node:fs');
 const path = require('node:path');
+const mongoose = require('mongoose');
+const TempBan = require('../database/models/TempBan');
 
 const dataDir = path.join(__dirname, '..', '..', 'data');
 const filePath = path.join(dataDir, 'tempbans.json');
 
-// Asegurar que exista la carpeta data
 if (!fs.existsSync(dataDir)) {
   fs.mkdirSync(dataDir, { recursive: true });
 }
 
-// Asegurar que exista el archivo tempbans.json
 if (!fs.existsSync(filePath)) {
   fs.writeFileSync(filePath, JSON.stringify([]));
 }
 
-function getTempBans() {
+function getLocalTempBans() {
   try {
     const data = fs.readFileSync(filePath, 'utf8');
     return JSON.parse(data);
   } catch (error) {
-    console.error('Error al leer tempbans.json:', error);
     return [];
   }
 }
 
-function saveTempBans(tempbans) {
+function saveLocalTempBans(tempbans) {
   try {
     fs.writeFileSync(filePath, JSON.stringify(tempbans, null, 2));
   } catch (error) {
-    console.error('Error al guardar tempbans.json:', error);
+    console.error('Error guardando tempbans locales:', error);
   }
 }
 
-function addTempBan(guildId, userId, unbanTimestamp, reason) {
-  const tempbans = getTempBans();
-  // Filtrar si ya existía un ban previo del mismo usuario en el mismo server
+async function addTempBan(guildId, userId, unbanTimestamp, reason) {
+  // Guardar en archivo local
+  const tempbans = getLocalTempBans();
   const filtered = tempbans.filter(b => !(b.guildId === guildId && b.userId === userId));
   filtered.push({ guildId, userId, unbanTimestamp, reason });
-  saveTempBans(filtered);
+  saveLocalTempBans(filtered);
+
+  // Guardar en MongoDB si está disponible
+  if (mongoose.connection.readyState === 1) {
+    try {
+      await TempBan.deleteMany({ guildId, userId });
+      await TempBan.create({ guildId, userId, unbanTimestamp, reason });
+    } catch (err) {
+      console.error('Error guardando TempBan en MongoDB:', err);
+    }
+  }
 }
 
-function removeTempBan(guildId, userId) {
-  const tempbans = getTempBans();
+async function removeTempBan(guildId, userId) {
+  // Remover de archivo local
+  const tempbans = getLocalTempBans();
   const filtered = tempbans.filter(b => !(b.guildId === guildId && b.userId === userId));
-  saveTempBans(filtered);
+  saveLocalTempBans(filtered);
+
+  // Remover de MongoDB si está disponible
+  if (mongoose.connection.readyState === 1) {
+    try {
+      await TempBan.deleteMany({ guildId, userId });
+    } catch (err) {
+      console.error('Error borrando TempBan en MongoDB:', err);
+    }
+  }
 }
 
 function initTempBanChecker(client) {
   const checkBans = async () => {
-    const tempbans = getTempBans();
+    let tempbans = [];
+
+    // Obtener desde MongoDB si está activo, de lo contrario del archivo local
+    if (mongoose.connection.readyState === 1) {
+      try {
+        tempbans = await TempBan.find({});
+      } catch (err) {
+        tempbans = getLocalTempBans();
+      }
+    } else {
+      tempbans = getLocalTempBans();
+    }
+
     const now = Date.now();
 
     for (const ban of tempbans) {
@@ -57,23 +88,21 @@ function initTempBanChecker(client) {
           const guild = await client.guilds.fetch(ban.guildId).catch(() => null);
           if (guild) {
             await guild.members.unban(ban.userId, 'Sanción temporal finalizada automáticamente.');
-            console.log(`✅ Unban automático completado para el usuario ${ban.userId} en el servidor ${guild.name}`);
+            console.log(`✅ Unban automático completado para el usuario ${ban.userId} en ${guild.name}`);
           }
         } catch (error) {
-          console.error(`❌ Error al desbanear automáticamente a ${ban.userId}:`, error);
+          console.error(`❌ Error al desbanear a ${ban.userId}:`, error);
         } finally {
-          removeTempBan(ban.guildId, ban.userId);
+          await removeTempBan(ban.guildId, ban.userId);
         }
       }
     }
   };
 
-  // Revisa cada 30 segundos si hay algún desban pendiente
   setInterval(checkBans, 30000);
-  checkBans(); // Ejecuta una revisión inicial al encender
+  checkBans();
 }
 
-// Función auxiliar para convertir cadenas como "30m", "2h", "1d" a milisegundos
 function parseDuration(durationStr) {
   if (!durationStr) return null;
   const regex = /^(\d+)\s*([smhd])$/i;
