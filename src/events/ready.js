@@ -24,8 +24,8 @@ module.exports = {
     console.log(`📊 Servidores activos: ${client.guilds.cache.size}`);
     console.log(`========================================\n`);
 
-    // 5. Establecer estado del bot
-    client.user.setActivity('Tus órdenes | /ping', { type: ActivityType.Watching });
+    // 5. Establecer estado del bot personalizado
+    client.user.setActivity('🌸 /help | /invitar', { type: ActivityType.Listening });
 
     // 6. Iniciar verificador automático de sanciones temporales
     initTempBanChecker(client);
