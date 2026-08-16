@@ -1,15 +1,14 @@
 const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
-const ytdl = require('@distube/ytdl-core');
 const play = require('play-dl');
 const { getQueue, createServerQueue, playNextSong } = require('../utils/musicManager');
 
 module.exports = {
   data: new SlashCommandBuilder()
     .setName('play')
-    .setDescription('Reproduce una canción o enlace de YouTube en tu canal de voz')
+    .setDescription('Reproduce una canción en tu canal de voz')
     .addStringOption(option =>
       option.setName('cancion')
-        .setDescription('Nombre de la canción o enlace de YouTube / SoundCloud')
+        .setDescription('Nombre de la canción o enlace (SoundCloud, YouTube, etc.)')
         .setRequired(true)
     ),
 
@@ -29,56 +28,46 @@ module.exports = {
     try {
       let songInfo = null;
 
-      // 1. Verificar si es un enlace directo de YouTube con @distube/ytdl-core
-      if (ytdl.validateURL(query)) {
-        try {
-          const info = await ytdl.getBasicInfo(query);
-          const details = info.videoDetails;
-          const seconds = parseInt(details.lengthSeconds || '0', 10);
-          const durationStr = seconds ? `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}` : 'Desconocida';
-
+      // 1. Buscar en SoundCloud (Libre de bloqueos de IP en la nube)
+      try {
+        const scResults = await play.search(query, { source: { soundcloud: 'tracks' }, limit: 1 });
+        if (scResults && scResults.length > 0) {
+          const track = scResults[0];
           songInfo = {
-            title: details.title,
-            url: details.video_url || query,
-            duration: durationStr,
-            thumbnail: details.thumbnails[0]?.url,
+            title: track.name,
+            url: track.permalink,
+            duration: track.durationRaw || 'Desconocida',
+            thumbnail: track.thumbnail || interaction.client.user.displayAvatarURL(),
             requestedBy: interaction.user
           };
-        } catch (e) {
-          console.log('Error obteniendo info con ytdl-core, intentando con play-dl...', e.message);
+        }
+      } catch (err) {
+        console.log('Error buscando en SoundCloud, intentando en YouTube...', err.message);
+      }
+
+      // 2. Si no dió resultado en SoundCloud, intentar en YouTube
+      if (!songInfo) {
+        try {
+          const ytResults = await play.search(query, { limit: 1 });
+          if (ytResults && ytResults.length > 0) {
+            const video = ytResults[0];
+            songInfo = {
+              title: video.title,
+              url: video.url,
+              duration: video.durationRaw || 'Desconocida',
+              thumbnail: video.thumbnails[0]?.url,
+              requestedBy: interaction.user
+            };
+          }
+        } catch (ytErr) {
+          console.error('Error buscando en YouTube:', ytErr.message);
         }
       }
 
-      // 2. Si no es enlace directo o falló ytdl-core, usar play-dl para buscar por nombre
       if (!songInfo) {
-        const validation = await play.validate(query);
-
-        if (validation === 'yt_video') {
-          const ytInfo = await play.video_info(query);
-          const details = ytInfo.video_details;
-          songInfo = {
-            title: details.title,
-            url: details.url,
-            duration: details.durationRaw,
-            thumbnail: details.thumbnails[0]?.url,
-            requestedBy: interaction.user
-          };
-        } else {
-          const searchResults = await play.search(query, { limit: 1 });
-          if (!searchResults || searchResults.length === 0) {
-            return await interaction.editReply({
-              content: `🔍 No se encontraron resultados para: **${query}**`
-            });
-          }
-          const video = searchResults[0];
-          songInfo = {
-            title: video.title,
-            url: video.url,
-            duration: video.durationRaw,
-            thumbnail: video.thumbnails[0]?.url,
-            requestedBy: interaction.user
-          };
-        }
+        return await interaction.editReply({
+          content: `🔍 No se encontraron resultados para: **${query}**`
+        });
       }
 
       let serverQueue = getQueue(interaction.guild.id);
@@ -101,7 +90,7 @@ module.exports = {
           .setDescription(`[${songInfo.title}](${songInfo.url})`)
           .setThumbnail(songInfo.thumbnail)
           .addFields(
-            { name: '⏱️ Duración', value: songInfo.duration || 'Desconocida', inline: true },
+            { name: '⏱️ Duración', value: songInfo.duration, inline: true },
             { name: '👤 Solicitado por', value: `${songInfo.requestedBy}`, inline: true }
           )
           .setFooter({ text: `Conectado a ${voiceChannel.name}` });
@@ -115,7 +104,7 @@ module.exports = {
           .setThumbnail(songInfo.thumbnail)
           .addFields(
             { name: '📍 Posición en Cola', value: `#${serverQueue.songs.length}`, inline: true },
-            { name: '⏱️ Duración', value: songInfo.duration || 'Desconocida', inline: true },
+            { name: '⏱️ Duración', value: songInfo.duration, inline: true },
             { name: '👤 Solicitado por', value: `${songInfo.requestedBy}`, inline: true }
           );
 

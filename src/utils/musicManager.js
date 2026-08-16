@@ -6,7 +6,6 @@ const {
   VoiceConnectionStatus, 
   entersState 
 } = require('@discordjs/voice');
-const ytdl = require('@distube/ytdl-core');
 const play = require('play-dl');
 
 const queues = new Map();
@@ -16,48 +15,27 @@ function getQueue(guildId) {
 }
 
 async function getAudioStream(song) {
-  // 1. Intentar primero con la URL de YouTube si está disponible
-  if (song.url && (song.url.includes('youtube.com') || song.url.includes('youtu.be'))) {
-    try {
-      const stream = ytdl(song.url, {
-        filter: 'audioonly',
-        highWaterMark: 1 << 25,
-        quality: 'highestaudio',
-        requestOptions: {
-          headers: {
-            'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36'
-          }
-        }
-      });
-      return createAudioResource(stream);
-    } catch (err) {
-      console.log(`⚠️ YouTube bloqueó IP de Render para "${song.title}", pasando a motor SoundCloud...`);
-    }
-
-    try {
-      const pdlStream = await play.stream(song.url);
-      return createAudioResource(pdlStream.stream, { inputType: pdlStream.type });
-    } catch (err) {
-      console.log(`⚠️ Falló play-dl YouTube, buscando automáticamente en SoundCloud...`);
-    }
-  } else if (song.url && song.url.includes('soundcloud.com')) {
+  // 1. Si el enlace es de SoundCloud
+  if (song.url && song.url.includes('soundcloud.com')) {
     const pdlStream = await play.stream(song.url);
     return createAudioResource(pdlStream.stream, { inputType: pdlStream.type });
   }
 
-  // 2. Respaldo Automático Anti-Bloqueos: Buscar y transmitir el mismo título en SoundCloud (Sin bloqueos de IP en la nube)
+  // 2. Transmitir usando la búsqueda de SoundCloud para evitar bloqueos de IP de YouTube
   try {
     const scResults = await play.search(song.title, { source: { soundcloud: 'tracks' }, limit: 1 });
     if (scResults && scResults.length > 0) {
-      console.log(`✅ Transmitiendo "${song.title}" desde fuente libre de bloqueos.`);
+      console.log(`✅ Transmitiendo "${scResults[0].name}" desde fuente libre de bloqueos de IP.`);
       const pdlStream = await play.stream(scResults[0].url);
       return createAudioResource(pdlStream.stream, { inputType: pdlStream.type });
     }
-  } catch (scErr) {
-    console.error('Error en respaldo SoundCloud:', scErr);
+  } catch (err) {
+    console.error('Error en motor SoundCloud:', err.message);
   }
 
-  throw new Error('No se pudo obtener el audio de ninguna fuente disponible.');
+  // 3. Respaldo directo si es enlace directo o fallback
+  const pdlStream = await play.stream(song.url);
+  return createAudioResource(pdlStream.stream, { inputType: pdlStream.type });
 }
 
 async function playNextSong(guildId) {
@@ -140,7 +118,7 @@ async function createServerQueue(interaction, voiceChannel) {
   });
 
   player.on('error', error => {
-    console.error('Audio Player Error:', error);
+    console.error('Audio Player Error:', error.message);
     const q = queues.get(guildId);
     if (q) {
       q.songs.shift();
