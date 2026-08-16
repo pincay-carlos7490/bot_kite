@@ -4,16 +4,38 @@ const {
   createAudioResource, 
   AudioPlayerStatus, 
   VoiceConnectionStatus, 
-  entersState, 
-  getVoiceConnection 
+  entersState 
 } = require('@discordjs/voice');
+const ytdl = require('@distube/ytdl-core');
 const play = require('play-dl');
 
-// Mapa global para gestionar la cola de música por cada servidor (guildId)
 const queues = new Map();
 
 function getQueue(guildId) {
   return queues.get(guildId) || null;
+}
+
+async function getAudioStream(url) {
+  // 1. Intentar primero con @distube/ytdl-core (diseñado para evitar bloqueos de IP en la nube)
+  try {
+    const stream = ytdl(url, {
+      filter: 'audioonly',
+      highWaterMark: 1 << 25,
+      quality: 'highestaudio',
+      requestOptions: {
+        headers: {
+          'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36'
+        }
+      }
+    });
+    return createAudioResource(stream);
+  } catch (err) {
+    console.log('Fallo ytdl-core, intentando con play-dl...', err.message);
+  }
+
+  // 2. Respaldo con play-dl para SoundCloud o fuentes alternativas
+  const pdlStream = await play.stream(url);
+  return createAudioResource(pdlStream.stream, { inputType: pdlStream.type });
 }
 
 async function playNextSong(guildId) {
@@ -22,7 +44,6 @@ async function playNextSong(guildId) {
 
   if (queue.songs.length === 0) {
     queue.playing = false;
-    // Si la cola se vacía, esperar 2 minutos e irse del canal de voz si no hay canciones nuevas
     if (queue.timeout) clearTimeout(queue.timeout);
     queue.timeout = setTimeout(() => {
       const currentQueue = queues.get(guildId);
@@ -44,11 +65,7 @@ async function playNextSong(guildId) {
   const currentSong = queue.songs[0];
 
   try {
-    const stream = await play.stream(currentSong.url);
-    const resource = createAudioResource(stream.stream, {
-      inputType: stream.type
-    });
-
+    const resource = await getAudioStream(currentSong.url);
     queue.player.play(resource);
     queue.playing = true;
 
@@ -60,7 +77,9 @@ async function playNextSong(guildId) {
   } catch (error) {
     console.error(`Error al reproducir ${currentSong.title}:`, error);
     if (queue.textChannel) {
-      queue.textChannel.send({ content: `❌ Hubo un error al intentar reproducir **${currentSong.title}**. Saltando a la siguiente...` }).catch(() => null);
+      queue.textChannel.send({ 
+        content: `❌ No se pudo reproducir **${currentSong.title}** debido a restricciones de YouTube. Saltando a la siguiente...` 
+      }).catch(() => null);
     }
     queue.songs.shift();
     playNextSong(guildId);
@@ -90,11 +109,10 @@ async function createServerQueue(interaction, voiceChannel) {
   connection.subscribe(player);
   queues.set(guildId, queueConstruct);
 
-  // Eventos del Audio Player
   player.on(AudioPlayerStatus.Idle, () => {
     const q = queues.get(guildId);
     if (q) {
-      q.songs.shift(); // Remover canción terminada
+      q.songs.shift();
       playNextSong(guildId);
     }
   });

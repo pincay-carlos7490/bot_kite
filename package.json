@@ -15,6 +15,7 @@
   "type": "commonjs",
   "dependencies": {
     "@discordjs/voice": "^0.19.2",
+    "@distube/ytdl-core": "^4.16.12",
     "@napi-rs/canvas": "^1.0.6",
     "discord.js": "^14.27.0",
     "dotenv": "^17.4.2",

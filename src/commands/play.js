@@ -1,4 +1,5 @@
 const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
+const ytdl = require('@distube/ytdl-core');
 const play = require('play-dl');
 const { getQueue, createServerQueue, playNextSong } = require('../utils/musicManager');
 
@@ -28,35 +29,56 @@ module.exports = {
     try {
       let songInfo = null;
 
-      // Comprobar si es un enlace directo o un término de búsqueda
-      const validation = await play.validate(query);
+      // 1. Verificar si es un enlace directo de YouTube con @distube/ytdl-core
+      if (ytdl.validateURL(query)) {
+        try {
+          const info = await ytdl.getBasicInfo(query);
+          const details = info.videoDetails;
+          const seconds = parseInt(details.lengthSeconds || '0', 10);
+          const durationStr = seconds ? `${Math.floor(seconds / 60)}:${String(seconds % 60).padStart(2, '0')}` : 'Desconocida';
 
-      if (validation === 'yt_video') {
-        const ytInfo = await play.video_info(query);
-        const details = ytInfo.video_details;
-        songInfo = {
-          title: details.title,
-          url: details.url,
-          duration: details.durationRaw,
-          thumbnail: details.thumbnails[0]?.url,
-          requestedBy: interaction.user
-        };
-      } else {
-        // Buscar en YouTube por nombre
-        const searchResults = await play.search(query, { limit: 1 });
-        if (!searchResults || searchResults.length === 0) {
-          return await interaction.editReply({
-            content: `🔍 No se encontraron resultados para: **${query}**`
-          });
+          songInfo = {
+            title: details.title,
+            url: details.video_url || query,
+            duration: durationStr,
+            thumbnail: details.thumbnails[0]?.url,
+            requestedBy: interaction.user
+          };
+        } catch (e) {
+          console.log('Error obteniendo info con ytdl-core, intentando con play-dl...', e.message);
         }
-        const video = searchResults[0];
-        songInfo = {
-          title: video.title,
-          url: video.url,
-          duration: video.durationRaw,
-          thumbnail: video.thumbnails[0]?.url,
-          requestedBy: interaction.user
-        };
+      }
+
+      // 2. Si no es enlace directo o falló ytdl-core, usar play-dl para buscar por nombre
+      if (!songInfo) {
+        const validation = await play.validate(query);
+
+        if (validation === 'yt_video') {
+          const ytInfo = await play.video_info(query);
+          const details = ytInfo.video_details;
+          songInfo = {
+            title: details.title,
+            url: details.url,
+            duration: details.durationRaw,
+            thumbnail: details.thumbnails[0]?.url,
+            requestedBy: interaction.user
+          };
+        } else {
+          const searchResults = await play.search(query, { limit: 1 });
+          if (!searchResults || searchResults.length === 0) {
+            return await interaction.editReply({
+              content: `🔍 No se encontraron resultados para: **${query}**`
+            });
+          }
+          const video = searchResults[0];
+          songInfo = {
+            title: video.title,
+            url: video.url,
+            duration: video.durationRaw,
+            thumbnail: video.thumbnails[0]?.url,
+            requestedBy: interaction.user
+          };
+        }
       }
 
       let serverQueue = getQueue(interaction.guild.id);
