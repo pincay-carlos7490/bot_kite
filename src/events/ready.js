@@ -29,7 +29,7 @@ module.exports = {
       activities: [{
         name: 'custom',
         type: ActivityType.Custom,
-        state: '☄️ /help - bot-kite.onrender.com'
+        state: '☄️ /help - discord.com/oauth2/authorize?client_id=1538371213615702056'
       }],
       status: 'online'
     });
