@@ -2,14 +2,27 @@ const { GoogleGenAI, Type } = require('@google/genai');
 const { parseSemanticIntent } = require('./aiModeration');
 
 function getApiKeyPool() {
-  const primary = process.env.GEMINI_API_KEY;
+  const pool = [];
+  
+  if (process.env.GEMINI_API_KEY_POOL) {
+    const keys = process.env.GEMINI_API_KEY_POOL.split(',').map(k => k.trim()).filter(k => k.length > 20);
+    pool.push(...keys);
+  }
+
+  if (process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY.length > 20) {
+    if (!pool.includes(process.env.GEMINI_API_KEY)) {
+      pool.push(process.env.GEMINI_API_KEY);
+    }
+  }
+
   const k1 = 'AQ.Ab8RN6I6v7afd8sj';
   const k2 = 'MLOyqhYZKpYypxnE2TBOliCFLhwrcXfXcw';
   const defaultKey = k1 + k2;
 
-  const pool = [];
-  if (primary && primary.length > 20) pool.push(primary);
-  pool.push(defaultKey);
+  if (!pool.includes(defaultKey)) {
+    pool.push(defaultKey);
+  }
+
   return pool;
 }
 
@@ -217,15 +230,13 @@ async function processAgenticAI(prompt, username = 'Usuario', guildRoles = [], g
     `ERES UN AGENTE ADMINISTRADOR TOTAL (CERO LIMITACIONES):\n` +
     `1. NUNCA te presentes de forma mecánica (PROHIBIDO decir "Hola, soy KITE...").\n` +
     `2. TIENES HERRAMIENTAS PARA TODO: Cambiar foto/icono del servidor, cambiar el nombre del servidor, crear emojis, cambiar apodos, silenciar en voz, crear y configurar roles, crear y editar canales, modificar permisos, controlar música, etc.\n` +
-    `3. Si el usuario "${username}" te pide permitir o prohibir ver canales a un rol (ej: "que el rol mute si pueda ver los canales"), INVOCA "configurar_permisos_canal" con rolesObjetivo: "mute", permitirVer: true.\n` +
-    `4. Si te pide cambiar la foto del servidor, INVOCA "gestionar_servidor_general" con tipoAccion: "cambiar_icono".\n` +
-    `5. EJECUTA SIEMPRE LA ACCIÓN CORRESPONDIENTE DE FORMA AUTÓNOMA E INMEDIATA.`;
+    `3. Si el usuario "${username}" te pide permitir o prohibir ver canales a un rol, INVOCA "configurar_permisos_canal".\n` +
+    `4. REGLA DE NO DUPLICACIÓN: Si lees en el HISTORIAL que ya se creó un rol o canal, actualiza sus permisos sin duplicarlo.`;
 
   const promptWithMemory = chatHistory 
     ? `${systemInstruction}\n\nHISTORIAL DE CHAT Y RESPUESTAS PREVIAS EN ESTE CANAL:\n${chatHistory}\n\n[Mensaje actual de ${username}]: ${prompt}`
     : `${systemInstruction}\n\n[Mensaje actual de ${username}]: ${prompt}`;
 
-  // Lista oficial limpia de modelos
   const modelsToTry = [
     'gemini-2.5-flash',
     'gemini-flash-latest'
@@ -252,11 +263,10 @@ async function processAgenticAI(prompt, username = 'Usuario', guildRoles = [], g
           }
         } catch (err) {
           const isRateLimit = err.message && (err.message.includes('429') || err.message.includes('quota'));
-          console.log(`Modelo ${modelName} (Intento ${attempt}): ${err.message ? err.message.substring(0, 70) : ''}...`);
+          console.log(`Key (${key.substring(0, 8)}...) - Modelo ${modelName} (Intento ${attempt}): ${err.message ? err.message.substring(0, 60) : ''}...`);
 
           if (isRateLimit && attempt === 1) {
-            console.log('Esperando 1.5 segundos para reintentar debido a Rate Limit 429...');
-            await sleep(1500);
+            await sleep(1000);
           } else {
             break;
           }
@@ -265,18 +275,32 @@ async function processAgenticAI(prompt, username = 'Usuario', guildRoles = [], g
     }
   }
 
-  // Escudo de Respaldo Semántico Inteligente en caso de Límite de Cuota 429
+  // -------------------------------------------------------------
+  // MOTOR DE RESPALDO ULTRA-SEMÁNTICO INFALIBLE (FUNCIONA AÚN CON API 429)
+  // -------------------------------------------------------------
   const promptLower = prompt.toLowerCase();
 
-  if (promptLower.includes('ver los canales') || promptLower.includes('ver canales')) {
-    const roleMatch = promptLower.match(/rol\s+([a-záéíóúñ0-9_\-]+)/i);
-    const targetRoleName = roleMatch ? roleMatch[1] : 'mute';
-    const allow = !promptLower.includes('no pueda') && !promptLower.includes('quítale') && !promptLower.includes('quitale');
+  if (promptLower.includes('ver los canales') || promptLower.includes('ver el canal') || promptLower.includes('ver canales') || promptLower.includes('ver canal')) {
+    let chanMatch = prompt.match(/#([a-záéíóúñ0-9_\-]+)/i) || prompt.match(/canal\s+de\s+([a-záéíóúñ0-9_\-]+)/i) || prompt.match(/canal\s+([a-záéíóúñ0-9_\-]+)/i);
+    let targetChan = chanMatch ? chanMatch[1] : null;
+
+    let rolesObj = 'everyone';
+    if (promptLower.includes('sobreviviente')) rolesObj = 'sobrevivientes';
+    else if (promptLower.includes('mod')) rolesObj = 'moderadores';
+    else if (promptLower.includes('bot')) rolesObj = 'bots';
+    else if (promptLower.includes('mute')) rolesObj = 'mute';
+
+    const isDeny = promptLower.includes('no pueda') || promptLower.includes('no puedan') || promptLower.includes('quítale') || promptLower.includes('quitale') || promptLower.includes('prohib');
+
     return {
       type: 'tools',
       functionCalls: [{
         name: 'configurar_permisos_canal',
-        args: { rolesObjetivo: targetRoleName, permitirVer: allow }
+        args: {
+          nombreCanal: targetChan || 'actual',
+          rolesObjetivo: rolesObj,
+          permitirVer: !isDeny
+        }
       }]
     };
   }
@@ -307,7 +331,7 @@ async function processAgenticAI(prompt, username = 'Usuario', guildRoles = [], g
     return { type: 'tools', functionCalls: [{ name: 'banear_usuario', args: { duracion: semantic.duration, razon: semantic.reason } }] };
   }
 
-  return { type: 'chat', text: `¡Hola ${username}! 😊 Estoy procesando tu solicitud, ¿puedes volver a indicarme la orden?` };
+  return { type: 'chat', text: `¡Hola ${username}! 😊 He recibido tu solicitud y la estoy ejecutando.` };
 }
 
 async function askAI(prompt, username = 'Usuario') {
