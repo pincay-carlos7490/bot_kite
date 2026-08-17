@@ -252,7 +252,7 @@ module.exports = {
             }
           }
 
-          // 0. CREAR O ELIMINAR ROL EN EL SERVIDOR (CON PERMISOS DE ROL)
+          // 0. CREAR O EDITAR ROL EN EL SERVIDOR (CON PERMISOS DE ROL INTELIGENTE SIN DUPLICADOS)
           if (name === 'crear_eliminar_rol') {
             if (!message.member.permissions.has(PermissionFlagsBits.ManageRoles) &&
                 !message.member.permissions.has(PermissionFlagsBits.Administrator)) {
@@ -267,49 +267,55 @@ module.exports = {
               const colorMap = { azul: 'Blue', rojo: 'Red', verde: 'Green', amarillo: 'Yellow', dorado: 'Gold', morado: 'Purple', gris: 'Grey', negro: 'DarkerGrey' };
               const colorValue = colorMap[(args.color || '').toLowerCase()] || args.color || 'Grey';
 
-              // Construcción de permisos globales del rol
-              const rolePermissions = [];
-              if (args.permitirVerCanales !== false) rolePermissions.push(PermissionFlagsBits.ViewChannel);
-              if (args.permitirEscribir === true) rolePermissions.push(PermissionFlagsBits.SendMessages);
-              if (args.permitirVerHistorial === true) rolePermissions.push(PermissionFlagsBits.ReadMessageHistory);
-              if (args.permitirVoz === true) {
-                rolePermissions.push(PermissionFlagsBits.Connect);
-                rolePermissions.push(PermissionFlagsBits.Speak);
+              let targetRole = message.guild.roles.cache.find(r => r.name.toLowerCase() === roleName.toLowerCase());
+              let isNew = false;
+
+              if (!targetRole) {
+                targetRole = await message.guild.roles.create({
+                  name: roleName,
+                  color: colorValue,
+                  reason: `Creado por orden agéntica de ${message.author.tag}`
+                });
+                isNew = true;
               }
 
-              const createdRole = await message.guild.roles.create({
-                name: roleName,
-                color: colorValue,
-                permissions: rolePermissions,
-                reason: `Creado por orden agéntica de ${message.author.tag}`
-              });
+              // Aplicar o modificar permisos en todos los canales
+              const overwrites = {};
+              const summaryLines = [];
 
-              // Aplicar restricción en todos los canales si se especificaron prohibiciones
-              if (args.permitirEscribir === false || args.permitirVerHistorial === false || args.permitirVoz === false) {
-                const overwrites = {};
-                if (args.permitirVerCanales !== undefined) overwrites.ViewChannel = args.permitirVerCanales;
-                if (args.permitirEscribir === false) overwrites.SendMessages = false;
-                if (args.permitirVerHistorial === false) overwrites.ReadMessageHistory = false;
-                if (args.permitirVoz === false) {
-                  overwrites.Connect = false;
-                  overwrites.Speak = false;
-                }
+              if (typeof args.permitirVerCanales === 'boolean') {
+                overwrites.ViewChannel = args.permitirVerCanales;
+                overwrites.ReadMessageHistory = args.permitirVerCanales;
+                summaryLines.push(`• 👁️ **Ver Canales:** ${args.permitirVerCanales ? 'PERMITIDO (Verde ✅)' : 'PROHIBIDO (Rojo ❌)'}`);
+              }
 
+              if (typeof args.permitirEscribir === 'boolean') {
+                overwrites.SendMessages = args.permitirEscribir;
+                summaryLines.push(`• 📝 **Enviar Mensajes:** ${args.permitirEscribir ? 'PERMITIDO (Verde ✅)' : 'PROHIBIDO (Rojo ❌)'}`);
+              }
+
+              if (typeof args.permitirVerHistorial === 'boolean') {
+                overwrites.ReadMessageHistory = args.permitirVerHistorial;
+                summaryLines.push(`• 📜 **Leer Historial:** ${args.permitirVerHistorial ? 'PERMITIDO (Verde ✅)' : 'PROHIBIDO (Rojo ❌)'}`);
+              }
+
+              if (typeof args.permitirVoz === 'boolean') {
+                overwrites.Connect = args.permitirVoz;
+                overwrites.Speak = args.permitirVoz;
+                summaryLines.push(`• 🔊 **Unirse a Voz:** ${args.permitirVoz ? 'PERMITIDO (Verde ✅)' : 'PROHIBIDO (Rojo ❌)'}`);
+              }
+
+              if (Object.keys(overwrites).length > 0) {
                 for (const [, channel] of message.guild.channels.cache) {
-                  await channel.permissionOverwrites.edit(createdRole.id, overwrites).catch(() => null);
+                  await channel.permissionOverwrites.edit(targetRole.id, overwrites).catch(() => null);
                 }
               }
 
               const embed = new EmbedBuilder()
-                .setColor(createdRole.color || '#57F287')
-                .setTitle('🎭 Nuevo Rol Creado y Configurado')
-                .setDescription(`Se ha creado el rol **${createdRole.name}** (${createdRole}) con permisos personalizados.`)
-                .addFields(
-                  { name: '🎨 Color', value: `${colorValue}`, inline: true },
-                  { name: '📝 Escribir Mensajes', value: args.permitirEscribir === false ? 'PROHIBIDO (Rojo ❌)' : 'Permitido', inline: true },
-                  { name: '📜 Leer Historial', value: args.permitirVerHistorial === false ? 'PROHIBIDO (Rojo ❌)' : 'Permitido', inline: true },
-                  { name: '🔊 Unirse a Voz', value: args.permitirVoz === false ? 'PROHIBIDO (Rojo ❌)' : 'Permitido', inline: true }
-                )
+                .setColor(targetRole.color || '#57F287')
+                .setTitle(isNew ? '🎭 Nuevo Rol Creado y Configurado' : '⚙️ Permisos de Rol Actualizados')
+                .setDescription(`Se han actualizado los permisos del rol **${targetRole.name}** (${targetRole}).\n\n` +
+                  (summaryLines.length > 0 ? summaryLines.join('\n') : '• Configuración general aplicada.'))
                 .setTimestamp();
 
               await message.channel.send({ embeds: [embed] });
@@ -371,7 +377,8 @@ module.exports = {
                     (rolesTargetStr.includes('sobreviviente') && rName.includes('sobreviviente')) ||
                     (rolesTargetStr.includes('miembro') && rName.includes('miembro')) ||
                     (rolesTargetStr.includes('mod') && rName.includes('mod')) ||
-                    (rolesTargetStr.includes('admin') && rName.includes('admin'))) {
+                    (rolesTargetStr.includes('admin') && rName.includes('admin')) ||
+                    (rolesTargetStr.includes('mute') && rName.includes('mute'))) {
                   rolesToModify.push(role);
                 }
               }
@@ -379,7 +386,7 @@ module.exports = {
               if (rolesToModify.length === 0) {
                 for (const [id, role] of message.guild.roles.cache) {
                   const rName = role.name.toLowerCase();
-                  if (rName.includes('sobreviviente') || rName.includes('miembro') || rName.includes('mod')) {
+                  if (rName.includes('sobreviviente') || rName.includes('miembro') || rName.includes('mod') || rName.includes('mute')) {
                     rolesToModify.push(role);
                   }
                 }
