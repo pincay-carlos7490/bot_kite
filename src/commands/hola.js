@@ -3,7 +3,9 @@ const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
 module.exports = {
   data: new SlashCommandBuilder()
     .setName('hola')
-    .setDescription('Te saluda amablemente el bot'),
+    .setDescription('Responde con un saludo cordial')
+    .setIntegrationTypes(0, 1)
+    .setContexts(0, 1, 2),
   
   async execute(interaction) {
     const embed = new EmbedBuilder()

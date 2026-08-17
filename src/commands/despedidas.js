@@ -6,6 +6,8 @@ module.exports = {
   data: new SlashCommandBuilder()
     .setName('despedidas')
     .setDescription('Configura o prueba el sistema de despedidas cuando un usuario sale del servidor')
+    .setIntegrationTypes(0, 1)
+    .setContexts(0, 1, 2)
     .addSubcommand(subcommand =>
       subcommand
         .setName('configurar')

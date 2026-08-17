@@ -3,7 +3,9 @@ const { SlashCommandBuilder, PermissionFlagsBits, EmbedBuilder, ChannelType } = 
 module.exports = {
   data: new SlashCommandBuilder()
     .setName('clear')
-    .setDescription('Elimina mensajes, con opciones opcionales de usuario o canal')
+    .setDescription('Elimina entre 1 y 100 mensajes en un canal con opción de filtros por usuario')
+    .setIntegrationTypes(0, 1)
+    .setContexts(0, 1, 2)
     .addIntegerOption(option =>
       option.setName('cantidad')
         .setDescription('Número de mensajes a borrar (de 1 a 100)')

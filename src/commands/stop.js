@@ -4,7 +4,9 @@ const { getQueue, queues } = require('../utils/musicManager');
 module.exports = {
   data: new SlashCommandBuilder()
     .setName('stop')
-    .setDescription('Detiene la música, vacía la cola y desconecta al bot del canal de voz'),
+    .setDescription('Detiene la música, vacía la cola y desconecta al bot del canal de voz')
+    .setIntegrationTypes(0, 1)
+    .setContexts(0, 1, 2),
 
   async execute(interaction) {
     const voiceChannel = interaction.member.voice.channel;

@@ -4,7 +4,9 @@ const { addTempBan, parseDuration } = require('../utils/tempbans');
 module.exports = {
   data: new SlashCommandBuilder()
     .setName('ban')
-    .setDescription('Banea a un usuario del servidor (temporal o permanentemente)')
+    .setDescription('Sanciona a un usuario de forma permanente o temporal')
+    .setIntegrationTypes(0, 1)
+    .setContexts(0, 1, 2)
     .addUserOption(option =>
       option.setName('usuario')
         .setDescription('Usuario a banear del servidor')

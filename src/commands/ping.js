@@ -3,7 +3,9 @@ const { SlashCommandBuilder, EmbedBuilder } = require('discord.js');
 module.exports = {
   data: new SlashCommandBuilder()
     .setName('ping')
-    .setDescription('Responde con la latencia del bot'),
+    .setDescription('Responde con Pong y muestra la latencia del bot')
+    .setIntegrationTypes(0, 1)
+    .setContexts(0, 1, 2),
   
   async execute(interaction) {
     const sent = await interaction.reply({ content: 'Calculando latencia...', fetchReply: true, ephemeral: true });

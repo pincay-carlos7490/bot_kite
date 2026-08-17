@@ -4,7 +4,9 @@ const { getQueue } = require('../utils/musicManager');
 module.exports = {
   data: new SlashCommandBuilder()
     .setName('queue')
-    .setDescription('Muestra la lista de canciones en la cola actual'),
+    .setDescription('Muestra la lista de canciones en la cola actual')
+    .setIntegrationTypes(0, 1)
+    .setContexts(0, 1, 2),
 
   async execute(interaction) {
     const serverQueue = getQueue(interaction.guild.id);

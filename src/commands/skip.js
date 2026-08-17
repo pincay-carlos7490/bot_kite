@@ -4,7 +4,9 @@ const { getQueue } = require('../utils/musicManager');
 module.exports = {
   data: new SlashCommandBuilder()
     .setName('skip')
-    .setDescription('Salta la canción actual a la siguiente en la cola'),
+    .setDescription('Salta la canción actual a la siguiente en la cola')
+    .setIntegrationTypes(0, 1)
+    .setContexts(0, 1, 2),
 
   async execute(interaction) {
     const voiceChannel = interaction.member.voice.channel;

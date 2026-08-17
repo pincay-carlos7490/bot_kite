@@ -5,7 +5,9 @@ const { generateWelcomeImage } = require('../utils/welcomeCanvas');
 module.exports = {
   data: new SlashCommandBuilder()
     .setName('bienvenidas')
-    .setDescription('Configura o prueba el sistema de bienvenidas con imagen personalizada')
+    .setDescription('Configura o prueba el sistema de mensajes e imágenes de bienvenida')
+    .setIntegrationTypes(0, 1)
+    .setContexts(0, 1, 2)
     .addSubcommand(subcommand =>
       subcommand
         .setName('configurar')

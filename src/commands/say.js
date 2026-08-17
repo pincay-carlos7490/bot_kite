@@ -3,7 +3,9 @@ const { SlashCommandBuilder, PermissionFlagsBits, EmbedBuilder, ChannelType } = 
 module.exports = {
   data: new SlashCommandBuilder()
     .setName('say')
-    .setDescription('Envía un mensaje con texto normal fuera del embed y/o dentro de la tarjeta Embed')
+    .setDescription('Envía un mensaje normal o un Embed formateado como el bot')
+    .setIntegrationTypes(0, 1)
+    .setContexts(0, 1, 2)
     .addStringOption(option =>
       option.setName('mensaje_normal')
         .setDescription('Texto fuera del Embed (soporta # Letras grandes, emojis, *cursiva*, > citas)')
