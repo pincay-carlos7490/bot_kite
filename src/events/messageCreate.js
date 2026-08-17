@@ -3,6 +3,7 @@ const { processAgenticAI } = require('../utils/aiManager');
 const { isInsultOrToxic } = require('../utils/aiModeration');
 const { addTempBan, removeTempBan } = require('../utils/tempbans');
 const { toggleChannelRestriction, findRoleInGuild } = require('../utils/channelRestrict');
+const { playMusicFromMessage } = require('../utils/musicManager');
 const GuildConfig = require('../database/models/GuildConfig');
 
 module.exports = {
@@ -47,6 +48,12 @@ module.exports = {
         const fn = agentResult.functionCall;
         const name = fn.name;
         const args = fn.args || {};
+
+        // 0. REPRODUCIR MÚSICA EN CANAL DE VOZ POR IA
+        if (name === 'reproducir_musica') {
+          const query = args.busqueda || cleanPrompt;
+          return await playMusicFromMessage(message, query);
+        }
 
         // 1. GESTIONAR ROL DE USUARIO (DALE / QUÍTALE UN ROL A UN USUARIO)
         if (name === 'gestionar_rol_usuario') {

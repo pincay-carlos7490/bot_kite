@@ -6,6 +6,7 @@ const {
   VoiceConnectionStatus, 
   entersState 
 } = require('@discordjs/voice');
+const { EmbedBuilder } = require('discord.js');
 const play = require('play-dl');
 
 const queues = new Map();
@@ -32,13 +33,11 @@ async function getAudioStream(song) {
   let rawStream = null;
   let inputType = null;
 
-  // 1. Si el enlace es de SoundCloud
   if (song.url && song.url.includes('soundcloud.com')) {
     const pdlStream = await play.stream(song.url);
     rawStream = pdlStream.stream;
     inputType = pdlStream.type;
   } else {
-    // 2. Transmitir usando la búsqueda de SoundCloud para evitar bloqueos de IP de YouTube
     try {
       const scResults = await play.search(song.title, { source: { soundcloud: 'tracks' }, limit: 1 });
       if (scResults && scResults.length > 0) {
@@ -58,13 +57,11 @@ async function getAudioStream(song) {
     inputType = pdlStream.type;
   }
 
-  // 3. Crear recurso de audio con control de volumen activado para eliminar la saturación
   const resource = createAudioResource(rawStream, { 
     inputType: inputType,
     inlineVolume: true 
   });
 
-  // Ajustar el volumen al 75% para eliminar el clipping / sonido saturado y entrecortado
   if (resource.volume) {
     resource.volume.setVolume(0.75);
   }
@@ -120,18 +117,18 @@ async function playNextSong(guildId) {
   }
 }
 
-async function createServerQueue(interaction, voiceChannel) {
-  const guildId = interaction.guild.id;
+async function createServerQueue(context, voiceChannel) {
+  const guildId = context.guild.id;
   const player = createAudioPlayer();
 
   const connection = joinVoiceChannel({
     channelId: voiceChannel.id,
     guildId: guildId,
-    adapterCreator: interaction.guild.voiceAdapterCreator,
+    adapterCreator: context.guild.voiceAdapterCreator,
   });
 
   const queueConstruct = {
-    textChannel: interaction.channel,
+    textChannel: context.channel,
     voiceChannel: voiceChannel,
     connection: connection,
     player: player,
@@ -175,10 +172,93 @@ async function createServerQueue(interaction, voiceChannel) {
   return queueConstruct;
 }
 
+async function playMusicFromMessage(message, query) {
+  const voiceChannel = message.member?.voice?.channel;
+  if (!voiceChannel) {
+    return await message.reply('❌ Debes estar conectado a un canal de voz para que pueda unirme y reproducir música.');
+  }
+
+  let songInfo = null;
+
+  try {
+    const scResults = await play.search(query, { source: { soundcloud: 'tracks' }, limit: 1 });
+    if (scResults && scResults.length > 0) {
+      const track = scResults[0];
+      songInfo = {
+        title: track.name,
+        url: track.permalink,
+        duration: track.durationRaw || 'Desconocida',
+        thumbnail: track.thumbnail || message.client.user.displayAvatarURL(),
+        requestedBy: message.author
+      };
+    }
+  } catch (err) {}
+
+  if (!songInfo) {
+    try {
+      const ytResults = await play.search(query, { limit: 1 });
+      if (ytResults && ytResults.length > 0) {
+        const video = ytResults[0];
+        songInfo = {
+          title: video.title,
+          url: video.url,
+          duration: video.durationRaw || 'Desconocida',
+          thumbnail: video.thumbnails[0]?.url,
+          requestedBy: message.author
+        };
+      }
+    } catch (err) {}
+  }
+
+  if (!songInfo) {
+    return await message.reply(`🔍 No se encontraron resultados de música para: **${query}**`);
+  }
+
+  let serverQueue = getQueue(message.guild.id);
+
+  if (!serverQueue) {
+    serverQueue = await createServerQueue(message, voiceChannel);
+  } else if (serverQueue.voiceChannel.id !== voiceChannel.id) {
+    return await message.reply(`❌ Ya me encuentro reproduciendo música en el canal de voz **${serverQueue.voiceChannel.name}**.`);
+  }
+
+  serverQueue.songs.push(songInfo);
+
+  if (!serverQueue.playing && serverQueue.songs.length === 1) {
+    await playNextSong(message.guild.id);
+    const embed = new EmbedBuilder()
+      .setColor('#5865F2')
+      .setTitle('🎵 Conectado al Canal y Reproduciendo')
+      .setDescription(`[${songInfo.title}](${songInfo.url})`)
+      .setThumbnail(songInfo.thumbnail)
+      .addFields(
+        { name: '⏱️ Duración', value: songInfo.duration, inline: true },
+        { name: '👤 Solicitado por', value: `${songInfo.requestedBy}`, inline: true }
+      )
+      .setFooter({ text: `Conectado a ${voiceChannel.name}` });
+
+    return await message.channel.send({ embeds: [embed] });
+  } else {
+    const embed = new EmbedBuilder()
+      .setColor('#57F287')
+      .setTitle('🎶 Añadido a la Cola por IA')
+      .setDescription(`[${songInfo.title}](${songInfo.url})`)
+      .setThumbnail(songInfo.thumbnail)
+      .addFields(
+        { name: '📍 Posición en Cola', value: `#${serverQueue.songs.length}`, inline: true },
+        { name: '⏱️ Duración', value: songInfo.duration, inline: true },
+        { name: '👤 Solicitado por', value: `${songInfo.requestedBy}`, inline: true }
+      );
+
+    return await message.channel.send({ embeds: [embed] });
+  }
+}
+
 module.exports = {
   queues,
   getQueue,
   createServerQueue,
   playNextSong,
   initMusicEngine,
+  playMusicFromMessage,
 };

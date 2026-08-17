@@ -16,6 +16,17 @@ async function processAgenticAI(prompt, username = 'Usuario', guildRoles = []) {
   const tools = [{
     functionDeclarations: [
       {
+        name: 'reproducir_musica',
+        description: 'Unirse al canal de voz del usuario y reproducir una canción, música o video por nombre o enlace URL.',
+        parameters: {
+          type: Type.OBJECT,
+          properties: {
+            busqueda: { type: Type.STRING, description: 'Nombre de la canción, música, artista o URL a buscar y reproducir.' }
+          },
+          required: ['busqueda']
+        }
+      },
+      {
         name: 'gestionar_rol_usuario',
         description: 'Asigna o quita roles a un usuario específico del servidor.',
         parameters: {
@@ -134,11 +145,11 @@ async function processAgenticAI(prompt, username = 'Usuario', guildRoles = []) {
   }];
 
   const systemInstruction = 
-    `Tu nombre es KITE. Eres el Administrador Agéntico Autónomo de Discord, con personalidad alegre, proactiva y cercana.\n` +
+    `Tu nombre es KITE. Eres el Administrador y Reproductor de Música Agéntico Autónomo de Discord, con personalidad alegre, proactiva y cercana.\n` +
     `REGLAS OBLIGATORIAS:\n` +
     `1. NUNCA te presentes de forma mecánica (PROHIBIDO decir "Hola, soy KITE...").\n` +
-    `2. Si el usuario "${username}" te pide realizar una acción de administración (crear/editar/borrar roles, asignar/quitar roles a usuarios, configurar autorol de bienvenida, crear/editar canales, auditar servidor, bloquear/desbloquear canal, modo pausado, borrar mensajes, banear/desbanear), EJECUTA LA FUNCIÓN CORRESPONDIENTE sin rodeos.\n` +
-    `3. Si el usuario te hace una pregunta o habla contigo de forma normal (por ejemplo "estas ahi?", "hola", "como estas?"), RESPONDE DE MANERA CONVERSACIONAL Y ALEGRE COMO UN AMIGO REAL.`;
+    `2. Si el usuario "${username}" te pide reproducir música, entrar al canal de voz y poner una canción, o cualquier orden de administración (crear/editar/borrar roles, asignar/quitar roles, autorol, canales, modo pausado, borrar mensajes, banear/desbanear), EJECUTA LA FUNCIÓN CORRESPONDIENTE sin rodeos.\n` +
+    `3. Si el usuario te hace una pregunta o habla contigo de forma normal, RESPONDE DE MANERA CONVERSACIONAL Y ALEGRE COMO UN AMIGO REAL.`;
 
   // Bucle de Conmutación Automática por 503 (Alta Demanda) o 429 (Cuota)
   const modelsToTry = [
@@ -173,8 +184,11 @@ async function processAgenticAI(prompt, username = 'Usuario', guildRoles = []) {
     }
   }
 
-  // Escudo de Respaldo Semántico en caso extremo de fallo de red en todos los modelos
+  // Escudo de Respaldo Semántico
   const semantic = parseSemanticIntent(prompt, guildRoles);
+  if (semantic.intent === 'PLAY_MUSIC') {
+    return { type: 'tool', functionCall: { name: 'reproducir_musica', args: { busqueda: semantic.query } } };
+  }
   if (semantic.intent === 'SLOWMODE') {
     return { type: 'tool', functionCall: { name: 'modo_pausado', args: { segundos: semantic.seconds } } };
   }
@@ -194,7 +208,7 @@ async function processAgenticAI(prompt, username = 'Usuario', guildRoles = []) {
     return { type: 'tool', functionCall: { name: 'desbanear_usuario', args: { razon: semantic.reason } } };
   }
 
-  return { type: 'chat', text: `¡Hola ${username}! 😊 Estoy totalmente aquí y listo para administrar lo que necesites.` };
+  return { type: 'chat', text: `¡Hola ${username}! 😊 Estoy totalmente aquí y listo para reproducir música o ayudarte.` };
 }
 
 async function askAI(prompt, username = 'Usuario') {
