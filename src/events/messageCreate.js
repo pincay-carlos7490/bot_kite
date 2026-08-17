@@ -80,7 +80,7 @@ module.exports = {
             }
           }
 
-          // 0. CONFIGURAR PERMISOS AVANZADOS DINÁMICOS DE ROLES EN CANAL POR IA
+          // 0. CONFIGURAR PERMISOS AVANZADOS DINÁMICOS Y UNIVERSALES DE ROLES EN CANAL POR IA
           if (name === 'configurar_permisos_canal') {
             if (!message.member.permissions.has(PermissionFlagsBits.ManageChannels) &&
                 !message.member.permissions.has(PermissionFlagsBits.Administrator)) {
@@ -131,9 +131,24 @@ module.exports = {
                 if (rolesToModify.length === 0) rolesToModify.push(message.guild.roles.everyone);
               }
 
-              // Construcción dinámica de flags de permisos
+              // Matriz Completa y Universal de Permisos de Discord
               const overwritesObj = {};
               const summaryLines = [];
+
+              if (typeof args.permitirCrearHilosPublicos === 'boolean') {
+                overwritesObj.CreatePublicThreads = args.permitirCrearHilosPublicos;
+                summaryLines.push(`• 🧵 **Crear Hilos Públicos:** ${args.permitirCrearHilosPublicos ? 'PERMITIDO (Verde ✅)' : 'PROHIBIDO (Rojo ❌)'}`);
+              }
+
+              if (typeof args.permitirCrearHilosPrivados === 'boolean') {
+                overwritesObj.CreatePrivateThreads = args.permitirCrearHilosPrivados;
+                summaryLines.push(`• 🔒 **Crear Hilos Privados:** ${args.permitirCrearHilosPrivados ? 'PERMITIDO (Verde ✅)' : 'PROHIBIDO (Rojo ❌)'}`);
+              }
+
+              if (typeof args.permitirMensajesEnHilos === 'boolean') {
+                overwritesObj.SendMessagesInThreads = args.permitirMensajesEnHilos;
+                summaryLines.push(`• 💬 **Enviar Mensajes en Hilos:** ${args.permitirMensajesEnHilos ? 'PERMITIDO (Verde ✅)' : 'PROHIBIDO (Rojo ❌)'}`);
+              }
 
               if (typeof args.permitirBorrarMensajes === 'boolean') {
                 overwritesObj.ManageMessages = args.permitirBorrarMensajes;
@@ -151,10 +166,35 @@ module.exports = {
                 summaryLines.push(`• 👁️ **Ver Canal:** ${args.permitirVer ? 'PERMITIDO (Verde ✅)' : 'OCULTO (Rojo ❌)'}`);
               }
 
+              if (typeof args.permitirVerHistorial === 'boolean') {
+                overwritesObj.ReadMessageHistory = args.permitirVerHistorial;
+                summaryLines.push(`• 📜 **Leer Historial:** ${args.permitirVerHistorial ? 'PERMITIDO (Verde ✅)' : 'PROHIBIDO (Rojo ❌)'}`);
+              }
+
               if (typeof args.permitirArchivos === 'boolean') {
                 overwritesObj.AttachFiles = args.permitirArchivos;
                 overwritesObj.EmbedLinks = args.permitirArchivos;
                 summaryLines.push(`• 🖼️ **Adjuntar Archivos:** ${args.permitirArchivos ? 'PERMITIDO (Verde ✅)' : 'PROHIBIDO (Rojo ❌)'}`);
+              }
+
+              if (typeof args.permitirReacciones === 'boolean') {
+                overwritesObj.AddReactions = args.permitirReacciones;
+                summaryLines.push(`• 😀 **Añadir Reacciones:** ${args.permitirReacciones ? 'PERMITIDO (Verde ✅)' : 'PROHIBIDO (Rojo ❌)'}`);
+              }
+
+              if (typeof args.permitirEmojisExternos === 'boolean') {
+                overwritesObj.UseExternalEmojis = args.permitirEmojisExternos;
+                summaryLines.push(`• 🎨 **Usar Emojis Externos:** ${args.permitirEmojisExternos ? 'PERMITIDO (Verde ✅)' : 'PROHIBIDO (Rojo ❌)'}`);
+              }
+
+              if (typeof args.permitirMencionarEveryone === 'boolean') {
+                overwritesObj.MentionEveryone = args.permitirMencionarEveryone;
+                summaryLines.push(`• 🔔 **Mencionar @everyone:** ${args.permitirMencionarEveryone ? 'PERMITIDO (Verde ✅)' : 'PROHIBIDO (Rojo ❌)'}`);
+              }
+
+              if (typeof args.permitirCrearInvitacion === 'boolean') {
+                overwritesObj.CreateInstantInvite = args.permitirCrearInvitacion;
+                summaryLines.push(`• 🔗 **Crear Invitación:** ${args.permitirCrearInvitacion ? 'PERMITIDO (Verde ✅)' : 'PROHIBIDO (Rojo ❌)'}`);
               }
 
               if (Object.keys(overwritesObj).length === 0) {

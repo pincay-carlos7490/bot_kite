@@ -17,16 +17,24 @@ async function processAgenticAI(prompt, username = 'Usuario', guildRoles = []) {
     functionDeclarations: [
       {
         name: 'configurar_permisos_canal',
-        description: 'Configura o modifica permisos específicos (escribir, ver canal, adjuntar archivos, borrar mensajes/gestionar mensajes) para roles o para todo el servidor (@everyone) en un canal de texto.',
+        description: 'Configura o modifica CUALQUIER permiso de Discord (escribir, ver canal, hilos públicos, hilos privados, mensajes en hilos, adjuntar archivos, reacciones, menciones, borrar mensajes, crear invitaciones, gestionar webhooks, etc.) para roles o @everyone en un canal.',
         parameters: {
           type: Type.OBJECT,
           properties: {
-            nombreCanal: { type: Type.STRING, description: 'Nombre o mención del canal a configurar (ej: "#pruebas").' },
+            nombreCanal: { type: Type.STRING, description: 'Nombre o mención del canal a configurar (ej: "#memes").' },
             rolesObjetivo: { type: Type.STRING, description: 'Roles a los cuales modificar permisos (ej: "sobrevivientes", "everyone", "moderadores", "todos").' },
-            permitirEscribir: { type: Type.BOOLEAN, description: 'True para permitir enviar mensajes (Verde ✅), False para denegar envío de mensajes (Rojo ❌).' },
+            permitirCrearHilosPublicos: { type: Type.BOOLEAN, description: 'True para permitir crear hilos públicos (Verde ✅), False para prohibir/denegar hilos públicos (Rojo ❌).' },
+            permitirCrearHilosPrivados: { type: Type.BOOLEAN, description: 'True para permitir crear hilos privados, False para denegar.' },
+            permitirMensajesEnHilos: { type: Type.BOOLEAN, description: 'True para permitir mensajes en hilos, False para denegar.' },
+            permitirEscribir: { type: Type.BOOLEAN, description: 'True para permitir enviar mensajes (Verde ✅), False para denegar (Rojo ❌).' },
             permitirVer: { type: Type.BOOLEAN, description: 'True para permitir ver canal, False para ocultar canal.' },
-            permitirArchivos: { type: Type.BOOLEAN, description: 'True para permitir imágenes/archivos, False para prohibir.' },
-            permitirBorrarMensajes: { type: Type.BOOLEAN, description: 'True para permitir borrar/gestionar mensajes, False para prohibir/denegar borrar mensajes (Rojo ❌).' }
+            permitirVerHistorial: { type: Type.BOOLEAN, description: 'True para ver historial de mensajes, False para denegar.' },
+            permitirArchivos: { type: Type.BOOLEAN, description: 'True para permitir archivos/imágenes, False para prohibir.' },
+            permitirReacciones: { type: Type.BOOLEAN, description: 'True para permitir reacciones, False para denegar.' },
+            permitirEmojisExternos: { type: Type.BOOLEAN, description: 'True para permitir emojis externos, False para denegar.' },
+            permitirMencionarEveryone: { type: Type.BOOLEAN, description: 'True para permitir mencionar @everyone, False para denegar.' },
+            permitirBorrarMensajes: { type: Type.BOOLEAN, description: 'True para permitir borrar/gestionar mensajes, False para prohibir borrar mensajes.' },
+            permitirCrearInvitacion: { type: Type.BOOLEAN, description: 'True para permitir crear invitaciones, False para denegar.' }
           },
           required: ['nombreCanal']
         }
@@ -190,14 +198,12 @@ async function processAgenticAI(prompt, username = 'Usuario', guildRoles = []) {
 
   const systemInstruction = 
     `Tu nombre es KITE. Eres el Arquitecto, Administrador y Reproductor de Música Agéntico Autónomo de Discord, con personalidad alegre, proactiva y cercana.\n` +
-    `REGLAS OBLIGATORIAS DE LIBRE ENTENDIMIENTO:\n` +
+    `REGLAS OBLIGATORIAS DE LIBRE ENTENDIMIENTO DE PERMISOS:\n` +
     `1. NUNCA te presentes de forma mecánica (PROHIBIDO decir "Hola, soy KITE...").\n` +
-    `2. Si el usuario "${username}" te pide modificar permisos específicos de canal (ejemplo: "que los moderadores no puedan borrar mensajes", "que sobrevivientes puedan escribir", "no dejes enviar imagenes"), INVOCA "configurar_permisos_canal" asignando la propiedad exacta de forma booleana:\n` +
-    `   - Si habla de borrar mensajes: usa "permitirBorrarMensajes": true o false.\n` +
-    `   - Si habla de escribir mensajes: usa "permitirEscribir": true o false.\n` +
-    `   - Si habla de imágenes/archivos: usa "permitirArchivos": true o false.\n` +
-    `   - Si habla de ver el canal: usa "permitirVer": true o false.\n` +
-    `3. Si el usuario te hace una pregunta o habla contigo de forma normal, RESPONDE DE MANERA CONVERSACIONAL Y ALEGRE COMO UN AMIGO REAL.`;
+    `2. Conoces TODOS los permisos de Discord (hilos públicos, hilos privados, mensajes en hilos, escribir, ver canal, imágenes, reacciones, emojis externos, borrar mensajes, crear invitaciones, etc.).\n` +
+    `3. Si el usuario "${username}" te pide modificar CUALQUIER permiso de canal (ejemplo: "no puedan crear hilos publicos", "permitir hilos privados", "prohibir reacciones"), INVOCA OBLIGATORIAMENTE "configurar_permisos_canal" mapeando la propiedad de forma booleana (true para permitir, false para denegar).\n` +
+    `4. NUNCA digas que no tienes un permiso en tu panel de control, porque SÍ TIENES DISPONIBLE EL CONTROL TOTAL DE PERMISOS DE DISCORD.\n` +
+    `5. Si el usuario te hace una pregunta o habla contigo de forma normal, RESPONDE DE MANERA CONVERSACIONAL Y ALEGRE COMO UN AMIGO REAL.`;
 
   const modelsToTry = [
     'gemini-flash-latest',
