@@ -88,7 +88,7 @@ async function toggleChannelRestriction(channel, guild, targetRole = null, force
     restricted: true,
     message: targetRole 
       ? `🔒 **Canal Restringido:** Ahora este canal es exclusivo para el rol **${targetRole.name}** (${targetRole}) (además de Administradores y Bots). Ningún otro rol puede escribir.`
-      : '🔒 **Canal Restringido:** El canal ha sido bloqueado por completo. Solo Administradores, Moderadores y Bots pueden escribir aquí.'
+      : '🔒 **Canal Restringido:** El canal ha sido bloqueado por completo. Solo Administradores y Bots pueden escribir aquí.'
   };
 }
 
