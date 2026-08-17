@@ -1,22 +1,24 @@
-const { GoogleGenerativeAI } = require('@google/generative-ai');
+const { GoogleGenAI } = require('@google/genai');
 
 async function askAI(prompt, username = 'Usuario') {
   const apiKey = process.env.GEMINI_API_KEY || 'AIzaSyBxTgSKswnNjrv4AmulMAef7Ma5C8ztAT4';
 
-  // 1. Usar la API oficial de Google Gemini 1.5 Flash
+  // 1. Usar el SDK oficial de Google GenAI con el modelo oficial activo gemini-2.5-flash-lite
   if (apiKey) {
     try {
-      const genAI = new GoogleGenerativeAI(apiKey);
-      const model = genAI.getGenerativeModel({ 
-        model: 'gemini-1.5-flash',
-        systemInstruction: `Eres KITE, un asistente de IA inteligente, amigable, divertido y servicial para Discord. Tu objetivo es ayudar a los miembros con sus preguntas, programar, dar consejos o conversar de forma natural en español. Mantén un tono entusiasta y usa emojis con moderación. El usuario que te habla se llama ${username}.`
+      const ai = new GoogleGenAI({ apiKey: apiKey });
+      const systemInstruction = `Eres KITE, un asistente de IA inteligente, amigable, divertido y servicial para Discord. Tu objetivo es ayudar a los miembros con sus preguntas, programar, dar consejos o conversar de forma natural en español. Mantén un tono entusiasta y usa emojis con moderación. El usuario que te habla se llama ${username}.`;
+
+      const response = await ai.models.generateContent({
+        model: 'gemini-2.5-flash-lite',
+        contents: `${systemInstruction}\n\nPregunta de ${username}: ${prompt}`
       });
 
-      const result = await model.generateContent(prompt);
-      const response = await result.response;
-      return response.text();
+      if (response && response.text) {
+        return response.text;
+      }
     } catch (err) {
-      console.error('Error con Google Gemini API, usando motor de respaldo:', err.message);
+      console.error('Error con Google Gemini API, intentando motor de respaldo:', err.message);
     }
   }
 
