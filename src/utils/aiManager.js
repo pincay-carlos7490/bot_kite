@@ -10,19 +10,20 @@ function getActiveApiKey() {
   return k1 + k2;
 }
 
-async function processAgenticAI(prompt, username = 'Usuario', guildRoles = [], guildContext = {}) {
+async function processAgenticAI(prompt, username = 'Usuario', guildRoles = [], guildContext = {}, chatHistory = '') {
   const apiKey = getActiveApiKey();
 
   const tools = [{
     functionDeclarations: [
       {
         name: 'configurar_permisos_canal',
-        description: 'Modifica de forma inteligente CUALQUIER permiso de canal en Discord (escribir, hilos públicos, hilos privados, ver canal, imágenes, reacciones, emojis externos, menciones, borrar mensajes, crear invitaciones, etc.) para cualquier rol o @everyone.',
+        description: 'Modifica de forma inteligente CUALQUIER permiso de canal en Discord (crear encuestas, escribir, hilos públicos, hilos privados, ver canal, imágenes, reacciones, emojis externos, menciones, borrar mensajes, crear invitaciones, etc.) para cualquier rol o @everyone.',
         parameters: {
           type: Type.OBJECT,
           properties: {
-            nombreCanal: { type: Type.STRING, description: 'Nombre o mención del canal a configurar.' },
+            nombreCanal: { type: Type.STRING, description: 'Nombre o mención del canal a configurar (ej: "#memes" o "memes").' },
             rolesObjetivo: { type: Type.STRING, description: 'Roles a los cuales modificar permisos (ej: "sobrevivientes", "everyone", "moderadores", "bots", "todos").' },
+            permitirCrearEncuestas: { type: Type.BOOLEAN, description: 'True para permitir crear encuestas (Verde ✅), False para prohibir/denegar crear encuestas (Rojo ❌).' },
             permitirCrearHilosPublicos: { type: Type.BOOLEAN, description: 'True para permitir crear hilos públicos (Verde ✅), False para prohibir/denegar (Rojo ❌).' },
             permitirCrearHilosPrivados: { type: Type.BOOLEAN, description: 'True para permitir hilos privados, False para denegar.' },
             permitirMensajesEnHilos: { type: Type.BOOLEAN, description: 'True para permitir enviar mensajes en hilos, False para denegar.' },
@@ -199,14 +200,18 @@ async function processAgenticAI(prompt, username = 'Usuario', guildRoles = [], g
   const guildSummary = guildContext.summary || 'Servidor Activo';
 
   const systemInstruction = 
-    `Tu nombre es KITE. Eres el Agente Autónomo Administrador Total de Discord con ACCESO Y CONOCIMIENTO ABSOLUTO SOBRE TODO EL SERVIDOR.\n` +
+    `Tu nombre es KITE. Eres el Agente Autónomo Administrador Total de Discord con MEMORIA Y HISTORIAL DE CHAT COMPLETO.\n` +
     `ESTADO ACTUAL DEL SERVIDOR:\n${guildSummary}\n\n` +
     `REGLAS OBLIGATORIAS:\n` +
     `1. NUNCA te presentes de forma mecánica (PROHIBIDO decir "Hola, soy KITE...").\n` +
-    `2. Tienes acceso completo a TODOS los permisos de Discord (hilos públicos, hilos privados, mensajes en hilos, ver canal, escribir, imágenes, reacciones, emojis externos, borrar mensajes, crear invitaciones, etc.).\n` +
-    `3. Si el usuario "${username}" te pide modificar CUALQUIER permiso de canal, INVOCA OBLIGATORIAMENTE "configurar_permisos_canal" asignando la propiedad correspondiente de forma booleana (true para permitir, false para denegar).\n` +
-    `4. NUNCA digas que no tienes un permiso disponible en tu panel, porque TIENES PODER Y CONOCIMIENTO TOTAL EN EL SERVIDOR.\n` +
+    `2. Lee el HISTORIAL DE CHAT para recordar de qué venían hablando antes. Si el usuario "${username}" menciona un canal (ejemplo: "#memes"), EXTRAE ESE CANAL DIRECTAMENTE y no le preguntes qué canal es.\n` +
+    `3. Si el usuario te pide modificar permisos de encuestas (ejemplo: "crear encuestas"), usa "permitirCrearEncuestas": true o false.\n` +
+    `4. Si el usuario te pide modificar CUALQUIER permiso, INVOCA "configurar_permisos_canal" asignando las propiedades correspondientes de forma booleana (true para permitir, false para denegar).\n` +
     `5. Si el usuario te hace una pregunta o habla contigo de forma normal, RESPONDE DE MANERA CONVERSACIONAL Y ALEGRE COMO UN AMIGO REAL.`;
+
+  const promptWithMemory = chatHistory 
+    ? `${systemInstruction}\n\nHISTORIAL DE CHAT RECIENTE EN ESTE CANAL:\n${chatHistory}\n\n[Mensaje actual de ${username}]: ${prompt}`
+    : `${systemInstruction}\n\n[Mensaje actual de ${username}]: ${prompt}`;
 
   const modelsToTry = [
     'gemini-flash-latest',
@@ -222,7 +227,7 @@ async function processAgenticAI(prompt, username = 'Usuario', guildRoles = [], g
       try {
         const response = await ai.models.generateContent({
           model: modelName,
-          contents: `${systemInstruction}\n\n[Mensaje de ${username}]: ${prompt}`,
+          contents: promptWithMemory,
           config: { tools: tools }
         });
 

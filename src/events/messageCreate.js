@@ -35,7 +35,7 @@ module.exports = {
     }
 
     // -------------------------------------------------------------
-    // CASO 2: Motor Agéntico Autónomo de Arquitectura e IA por Mención (@KITE)
+    // CASO 2: Motor Agéntico Autónomo con Memoria de Conversación por Mención (@KITE)
     // -------------------------------------------------------------
     if (message.mentions.has(message.client.user) && !message.mentions.everyone) {
       await message.channel.sendTyping();
@@ -43,14 +43,27 @@ module.exports = {
       const cleanPrompt = message.content.replace(/<@!?\d+>/g, '').trim();
       const rolesList = Array.from(message.guild.roles.cache.values());
 
-      // Construcción del Mapa de Contexto del Servidor en Tiempo Real
+      // 1. Mapeo en Tiempo Real del Servidor
       const channelsList = message.guild.channels.cache.map(c => `#${c.name}`).slice(0, 30).join(', ');
       const rolesListNames = message.guild.roles.cache.map(r => `@${r.name}`).slice(0, 30).join(', ');
       const guildContext = {
         summary: `Servidor: "${message.guild.name}" | Canales Existentes: [${channelsList}] | Roles Existentes: [${rolesListNames}]`
       };
 
-      const agentResult = await processAgenticAI(cleanPrompt, message.author.username, rolesList, guildContext);
+      // 2. Historial de Conversación Reciente (Memoria del Chat)
+      let chatHistory = '';
+      try {
+        const fetchedMsgs = await message.channel.messages.fetch({ limit: 8 });
+        chatHistory = Array.from(fetchedMsgs.values())
+          .reverse()
+          .filter(m => m.content && m.content.trim().length > 0)
+          .map(m => `[${m.author.username}]: ${m.content.replace(/<@!?\d+>/g, '').trim()}`)
+          .join('\n');
+      } catch (historyErr) {
+        console.log('Error obteniendo historial de chat:', historyErr.message);
+      }
+
+      const agentResult = await processAgenticAI(cleanPrompt, message.author.username, rolesList, guildContext, chatHistory);
 
       if ((agentResult.type === 'tools' || agentResult.type === 'tool') && (agentResult.functionCalls || agentResult.functionCall)) {
         const calls = agentResult.functionCalls || [agentResult.functionCall];
@@ -139,9 +152,14 @@ module.exports = {
                 if (rolesToModify.length === 0) rolesToModify.push(message.guild.roles.everyone);
               }
 
-              // Matriz Completa y Universal de Permisos de Discord
+              // Matriz Completa y Universal de Permisos de Discord (Incluyendo Encuestas y Hilos)
               const overwritesObj = {};
               const summaryLines = [];
+
+              if (typeof args.permitirCrearEncuestas === 'boolean') {
+                overwritesObj[PermissionFlagsBits.SendPolls || 'SendPolls'] = args.permitirCrearEncuestas;
+                summaryLines.push(`• 📊 **Crear Encuestas:** ${args.permitirCrearEncuestas ? 'PERMITIDO (Verde ✅)' : 'PROHIBIDO (Rojo ❌)'}`);
+              }
 
               if (typeof args.permitirCrearHilosPublicos === 'boolean') {
                 overwritesObj.CreatePublicThreads = args.permitirCrearHilosPublicos;
