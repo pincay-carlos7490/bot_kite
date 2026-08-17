@@ -80,7 +80,7 @@ module.exports = {
             }
           }
 
-          // 0. CONFIGURAR PERMISOS AVANZADOS DE ROLES EN CANAL POR IA
+          // 0. CONFIGURAR PERMISOS AVANZADOS DINÁMICOS DE ROLES EN CANAL POR IA
           if (name === 'configurar_permisos_canal') {
             if (!message.member.permissions.has(PermissionFlagsBits.ManageChannels) &&
                 !message.member.permissions.has(PermissionFlagsBits.Administrator)) {
@@ -88,7 +88,6 @@ module.exports = {
               continue;
             }
 
-            // Búsqueda inteligente del canal objetivo (mención <#ID>, por ID, por nombre exacto o canal actual)
             let targetChan = message.mentions.channels.first();
 
             if (!targetChan && args.nombreCanal) {
@@ -102,90 +101,62 @@ module.exports = {
             }
 
             try {
-              // 1. Configurar @everyone (Permisos Mínimos / Sin envío de mensajes)
-              await targetChan.permissionOverwrites.edit(message.guild.roles.everyone.id, {
-                ViewChannel: true,
-                ReadMessageHistory: true,
-                SendMessages: false,
-                AttachFiles: false,
-                EmbedLinks: false,
-                AddReactions: true,
-                UseExternalEmojis: false,
-                MentionEveryone: false,
-                CreatePublicThreads: false,
-                CreatePrivateThreads: false,
-                SendMessagesInThreads: false
-              });
+              const rolesToModify = [];
+              const rolesTargetStr = (args.rolesObjetivo || '').toLowerCase();
 
-              // 2. Recorrer todos los roles del servidor y aplicar permisos explícitos (Verde / Rojo)
+              if (rolesTargetStr.includes('everyone') || rolesTargetStr.includes('todos')) {
+                rolesToModify.push(message.guild.roles.everyone);
+              }
+
               for (const [id, role] of message.guild.roles.cache) {
                 if (role.id === message.guild.roles.everyone.id) continue;
                 const rName = role.name.toLowerCase();
 
-                // SOBREVIVIENTES / MIEMBROS GENERALES -> PERMISOS MÍNIMOS (ROJO EN ENVIAR MENSAJES Y ARCHIVOS)
-                if (rName.includes('sobreviviente') || rName.includes('miembro') || rName.includes('usuario')) {
-                  await targetChan.permissionOverwrites.edit(role.id, {
-                    ViewChannel: true,
-                    ReadMessageHistory: true,
-                    SendMessages: false,
-                    AttachFiles: false,
-                    EmbedLinks: false,
-                    AddReactions: true,
-                    UseExternalEmojis: false,
-                    MentionEveryone: false,
-                    CreatePublicThreads: false,
-                    CreatePrivateThreads: false,
-                    SendMessagesInThreads: false
-                  });
-                }
-                // MODERADORES -> PERMISOS NECESARIOS (VERDE EN ENVIAR MENSAJES, VERDE EN ADJUNTAR ARCHIVOS)
-                else if (rName.includes('mod') || rName.includes('moderador') || rName.includes('moderadores')) {
-                  await targetChan.permissionOverwrites.edit(role.id, {
-                    ViewChannel: true,
-                    ReadMessageHistory: true,
-                    SendMessages: true,
-                    AttachFiles: true,
-                    EmbedLinks: true,
-                    AddReactions: true,
-                    UseExternalEmojis: true,
-                    MentionEveryone: false,
-                    ManageMessages: false,
-                    ManageChannels: false,
-                    ManageRoles: false
-                  });
-                }
-                // ADMINISTRADORES Y BOTS -> PERMISOS TOTALES (VERDE EN TODO)
-                else if (role.permissions.has(PermissionFlagsBits.Administrator) || rName.includes('admin') || rName.includes('bot')) {
-                  await targetChan.permissionOverwrites.edit(role.id, {
-                    ViewChannel: true,
-                    ReadMessageHistory: true,
-                    SendMessages: true,
-                    AttachFiles: true,
-                    EmbedLinks: true,
-                    AddReactions: true,
-                    UseExternalEmojis: true,
-                    MentionEveryone: true,
-                    ManageMessages: true,
-                    ManageChannels: true,
-                    ManageRoles: true,
-                    ManageWebhooks: true
-                  });
+                if (rolesTargetStr.includes(rName) ||
+                    (rolesTargetStr.includes('sobreviviente') && rName.includes('sobreviviente')) ||
+                    (rolesTargetStr.includes('miembro') && rName.includes('miembro')) ||
+                    (rolesTargetStr.includes('mod') && rName.includes('mod')) ||
+                    (rolesTargetStr.includes('admin') && rName.includes('admin'))) {
+                  rolesToModify.push(role);
                 }
               }
 
+              if (rolesToModify.length === 0) {
+                rolesToModify.push(message.guild.roles.everyone);
+                for (const [id, role] of message.guild.roles.cache) {
+                  const rName = role.name.toLowerCase();
+                  if (rName.includes('sobreviviente') || rName.includes('miembro')) {
+                    rolesToModify.push(role);
+                  }
+                }
+              }
+
+              const allowWriting = args.permitirEscribir !== false;
+
+              for (const role of rolesToModify) {
+                await targetChan.permissionOverwrites.edit(role.id, {
+                  SendMessages: allowWriting,
+                  ViewChannel: true,
+                  ReadMessageHistory: true,
+                  ...(typeof args.permitirArchivos === 'boolean' ? { AttachFiles: args.permitirArchivos } : {})
+                });
+              }
+
+              const statusText = allowWriting ? 'PERMITIDO escribir (Verde ✅)' : 'PROHIBIDO escribir (Rojo ❌)';
+              const modifiedNames = rolesToModify.map(r => r.name).join(', ');
+
               const embed = new EmbedBuilder()
-                .setColor('#57F287')
-                .setTitle('⚙️ Permisos de Canal Configurados por IA')
-                .setDescription(`Se han aplicado explícitamente los permisos en el canal **${targetChan}**:\n\n` +
-                  `• 🛡️ **Administradores y Bots:** Todos los Permisos (Verdes ✅)\n` +
-                  `• ⚔️ **Moderadores:** Permisos de Moderación Necesarios (Verdes ✅)\n` +
-                  `• 👤 **Sobrevivientes y @everyone:** Permisos Mínimos (Solo Lectura - Rojos ❌)`)
+                .setColor(allowWriting ? '#57F287' : '#ED4245')
+                .setTitle('⚙️ Permisos de Canal Actualizados por IA')
+                .setDescription(`Se han actualizado los permisos en el canal **${targetChan}**:\n\n` +
+                  `• 🎭 **Roles Modificados:** ${modifiedNames}\n` +
+                  `• 📝 **Permiso de Escritura:** ${statusText}`)
                 .addFields({ name: '🛡️ Configurado por', value: `${message.author}` })
                 .setTimestamp();
 
               await message.channel.send({ embeds: [embed] });
             } catch (err) {
-              console.error('Error configurando permisos avanzados de canal:', err);
+              console.error('Error configurando permisos dinámicos de canal:', err);
               await message.reply('❌ Ocurrió un error al configurar los permisos del canal.');
             }
           }

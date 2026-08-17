@@ -16,6 +16,22 @@ async function processAgenticAI(prompt, username = 'Usuario', guildRoles = []) {
   const tools = [{
     functionDeclarations: [
       {
+        name: 'configurar_permisos_canal',
+        description: 'Configura o modifica permisos específicos (escribir, ver canal, adjuntar archivos, borrar mensajes) para roles o para todo el servidor (@everyone) en un canal de texto.',
+        parameters: {
+          type: Type.OBJECT,
+          properties: {
+            nombreCanal: { type: Type.STRING, description: 'Nombre o mención del canal a configurar (ej: "#pruebas").' },
+            rolesObjetivo: { type: Type.STRING, description: 'Roles a los cuales modificar permisos (ej: "sobrevivientes", "everyone", "moderadores", "todos").' },
+            permitirEscribir: { type: Type.BOOLEAN, description: 'True para permitir enviar mensajes (Verde ✅), False para denegar envío de mensajes (Rojo ❌).' },
+            permitirVer: { type: Type.BOOLEAN, description: 'True para permitir ver canal, False para ocultar canal.' },
+            permitirArchivos: { type: Type.BOOLEAN, description: 'True para permitir imágenes/archivos, False para prohibir.' },
+            permitirBorrarMensajes: { type: Type.BOOLEAN, description: 'True para permitir borrar mensajes, False para prohibir.' }
+          },
+          required: ['nombreCanal']
+        }
+      },
+      {
         name: 'crear_categoria',
         description: 'Crea una nueva categoría de canales en el servidor.',
         parameters: {
@@ -39,18 +55,6 @@ async function processAgenticAI(prompt, username = 'Usuario', guildRoles = []) {
             topic: { type: Type.STRING, description: 'Tema o descripción del canal.' }
           },
           required: ['accion', 'nombreCanal']
-        }
-      },
-      {
-        name: 'configurar_permisos_canal',
-        description: 'Configura de forma avanzada los permisos de los roles (Sobrevivientes, Moderadores, Administradores y Bots) en un canal específico.',
-        parameters: {
-          type: Type.OBJECT,
-          properties: {
-            nombreCanal: { type: Type.STRING, description: 'Nombre o mención del canal a configurar (ej: "#pruebas" o "pruebas").' },
-            nivelRestriccion: { type: Type.STRING, description: '"solo_admin", "moderadores_y_admin", o "basico_sobrevivientes"' }
-          },
-          required: ['nombreCanal']
         }
       },
       {
@@ -188,10 +192,9 @@ async function processAgenticAI(prompt, username = 'Usuario', guildRoles = []) {
     `Tu nombre es KITE. Eres el Arquitecto, Administrador y Reproductor de Música Agéntico Autónomo de Discord, con personalidad alegre, proactiva y cercana.\n` +
     `REGLAS OBLIGATORIAS:\n` +
     `1. NUNCA te presentes de forma mecánica (PROHIBIDO decir "Hola, soy KITE...").\n` +
-    `2. Si el usuario "${username}" te pide crear categorías, crear canales dentro de categorías, configurar permisos de roles en un canal específico, reproducir música, desconectarse, saltar canciones, o cualquier orden de administración (roles, autorol, canales, modo pausado, borrar mensajes, banear/desbanear), EJECUTA LA FUNCIÓN CORRESPONDIENTE (o múltiples funciones) sin rodeos.\n` +
+    `2. Si el usuario "${username}" te pide modificar o permitir permisos a roles específicos (como permitir o denegar escribir, ver canal, etc.), invoca "configurar_permisos_canal" con los argumentos correspondientes (ej: permitirEscribir: true o false).\n` +
     `3. Si el usuario te hace una pregunta o habla contigo de forma normal, RESPONDE DE MANERA CONVERSACIONAL Y ALEGRE COMO UN AMIGO REAL.`;
 
-  // Modelos oficiales validos de Google GenAI
   const modelsToTry = [
     'gemini-flash-latest',
     'gemini-2.5-flash',
@@ -250,7 +253,7 @@ async function processAgenticAI(prompt, username = 'Usuario', guildRoles = []) {
     return { type: 'tools', functionCalls: [{ name: 'banear_usuario', args: { duracion: semantic.duration, razon: semantic.reason } }] };
   }
 
-  return { type: 'chat', text: `¡Hola ${username}! 😊 Estoy totalmente aquí y listo para construir y administrar el servidor.` };
+  return { type: 'chat', text: `¡Hola ${username}! 😊 Estoy totalmente aquí y listo para ayudarte.` };
 }
 
 async function askAI(prompt, username = 'Usuario') {
