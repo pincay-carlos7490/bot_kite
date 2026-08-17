@@ -50,14 +50,22 @@ module.exports = {
         summary: `Servidor: "${message.guild.name}" | Canales Existentes: [${channelsList}] | Roles Existentes: [${rolesListNames}]`
       };
 
-      // 2. Historial de Conversación Reciente (Memoria del Chat)
+      // 2. Historial de Conversación Reciente en Memoria (Incluyendo Mensajes y Embeds de KITE)
       let chatHistory = '';
       try {
-        const fetchedMsgs = await message.channel.messages.fetch({ limit: 8 });
+        const fetchedMsgs = await message.channel.messages.fetch({ limit: 10 });
         chatHistory = Array.from(fetchedMsgs.values())
           .reverse()
-          .filter(m => m.content && m.content.trim().length > 0)
-          .map(m => `[${m.author.username}]: ${m.content.replace(/<@!?\d+>/g, '').trim()}`)
+          .map(m => {
+            const author = m.author.username;
+            let text = m.content ? m.content.replace(/<@!?\d+>/g, '').trim() : '';
+            if (m.embeds && m.embeds.length > 0) {
+              const embedDetails = m.embeds.map(e => `${e.title || ''}: ${e.description || ''}`).join(' ');
+              text = text ? `${text} [Embed: ${embedDetails}]` : `[Embed: ${embedDetails}]`;
+            }
+            return text ? `[${author}]: ${text}` : null;
+          })
+          .filter(Boolean)
           .join('\n');
       } catch (historyErr) {
         console.log('Error obteniendo historial de chat:', historyErr.message);
@@ -98,6 +106,89 @@ module.exports = {
             } catch (err) {
               console.error('Error creando categoría:', err);
               await message.reply('❌ Ocurrió un error al intentar crear la categoría.');
+            }
+          }
+
+          // 0. CREAR O ELIMINAR ROL EN EL SERVIDOR (CON PERMISOS DE ROL)
+          if (name === 'crear_eliminar_rol') {
+            if (!message.member.permissions.has(PermissionFlagsBits.ManageRoles) &&
+                !message.member.permissions.has(PermissionFlagsBits.Administrator)) {
+              await message.reply('❌ No tienes permiso de **Gestionar Roles** para ejecutar esta acción.');
+              continue;
+            }
+
+            const action = (args.accion || 'crear').toLowerCase();
+            const roleName = args.nombreRol;
+
+            if (action === 'crear') {
+              const colorMap = { azul: 'Blue', rojo: 'Red', verde: 'Green', amarillo: 'Yellow', dorado: 'Gold', morado: 'Purple', gris: 'Grey', negro: 'DarkerGrey' };
+              const colorValue = colorMap[(args.color || '').toLowerCase()] || args.color || 'Grey';
+
+              // Construcción de permisos globales del rol
+              const rolePermissions = [];
+              if (args.permitirVerCanales !== false) rolePermissions.push(PermissionFlagsBits.ViewChannel);
+              if (args.permitirEscribir === true) rolePermissions.push(PermissionFlagsBits.SendMessages);
+              if (args.permitirVerHistorial === true) rolePermissions.push(PermissionFlagsBits.ReadMessageHistory);
+              if (args.permitirVoz === true) {
+                rolePermissions.push(PermissionFlagsBits.Connect);
+                rolePermissions.push(PermissionFlagsBits.Speak);
+              }
+
+              const createdRole = await message.guild.roles.create({
+                name: roleName,
+                color: colorValue,
+                permissions: rolePermissions,
+                reason: `Creado por orden agéntica de ${message.author.tag}`
+              });
+
+              // Aplicar restricción en todos los canales si se especificaron prohibiciones
+              if (args.permitirEscribir === false || args.permitirVerHistorial === false || args.permitirVoz === false) {
+                const overwrites = {};
+                if (args.permitirVerCanales !== undefined) overwrites.ViewChannel = args.permitirVerCanales;
+                if (args.permitirEscribir === false) overwrites.SendMessages = false;
+                if (args.permitirVerHistorial === false) overwrites.ReadMessageHistory = false;
+                if (args.permitirVoz === false) {
+                  overwrites.Connect = false;
+                  overwrites.Speak = false;
+                }
+
+                for (const [, channel] of message.guild.channels.cache) {
+                  await channel.permissionOverwrites.edit(createdRole.id, overwrites).catch(() => null);
+                }
+              }
+
+              const embed = new EmbedBuilder()
+                .setColor(createdRole.color || '#57F287')
+                .setTitle('🎭 Nuevo Rol Creado y Configurado')
+                .setDescription(`Se ha creado el rol **${createdRole.name}** (${createdRole}) con permisos personalizados.`)
+                .addFields(
+                  { name: '🎨 Color', value: `${colorValue}`, inline: true },
+                  { name: '📝 Escribir Mensajes', value: args.permitirEscribir === false ? 'PROHIBIDO (Rojo ❌)' : 'Permitido', inline: true },
+                  { name: '📜 Leer Historial', value: args.permitirVerHistorial === false ? 'PROHIBIDO (Rojo ❌)' : 'Permitido', inline: true },
+                  { name: '🔊 Unirse a Voz', value: args.permitirVoz === false ? 'PROHIBIDO (Rojo ❌)' : 'Permitido', inline: true }
+                )
+                .setTimestamp();
+
+              await message.channel.send({ embeds: [embed] });
+              continue;
+            }
+
+            if (action === 'eliminar') {
+              const res = findRoleInGuild(roleName, message.guild, message.mentions);
+              if (res.status === 'found') {
+                await res.role.delete(`Eliminado por orden agéntica de ${message.author.tag}`);
+                const embed = new EmbedBuilder()
+                  .setColor('#ED4245')
+                  .setTitle('🗑️ Rol Eliminado')
+                  .setDescription(`El rol **"${roleName}"** ha sido eliminado del servidor.`)
+                  .addFields({ name: '🛡️ Moderador', value: `${message.author}` })
+                  .setTimestamp();
+                await message.channel.send({ embeds: [embed] });
+                continue;
+              } else {
+                await message.reply(`⚠️ El rol **"${roleName}"** no existe en este servidor.`);
+                continue;
+              }
             }
           }
 
@@ -322,57 +413,6 @@ module.exports = {
 
             await message.channel.send({ embeds: [embed] });
             continue;
-          }
-
-          // 2. CREAR O ELIMINAR ROL EN EL SERVIDOR
-          if (name === 'crear_eliminar_rol') {
-            if (!message.member.permissions.has(PermissionFlagsBits.ManageRoles) &&
-                !message.member.permissions.has(PermissionFlagsBits.Administrator)) {
-              await message.reply('❌ No tienes permiso de **Gestionar Roles** para ejecutar esta acción.');
-              continue;
-            }
-
-            const action = (args.accion || 'crear').toLowerCase();
-            const roleName = args.nombreRol;
-
-            if (action === 'crear') {
-              const colorMap = { azul: 'Blue', rojo: 'Red', verde: 'Green', amarillo: 'Yellow', dorado: 'Gold', morado: 'Purple', negro: 'DarkerGrey' };
-              const colorValue = colorMap[(args.color || '').toLowerCase()] || args.color || 'Blue';
-
-              const createdRole = await message.guild.roles.create({
-                name: roleName,
-                color: colorValue,
-                reason: `Creado por orden agéntica de ${message.author.tag}`
-              });
-
-              const embed = new EmbedBuilder()
-                .setColor(createdRole.color || '#57F287')
-                .setTitle('🎭 Nuevo Rol Creado')
-                .setDescription(`Se ha creado exitosamente el rol **${createdRole.name}** (${createdRole}).`)
-                .addFields({ name: '🛡️ Creado por', value: `${message.author}` })
-                .setTimestamp();
-
-              await message.channel.send({ embeds: [embed] });
-              continue;
-            }
-
-            if (action === 'eliminar') {
-              const res = findRoleInGuild(roleName, message.guild, message.mentions);
-              if (res.status === 'found') {
-                await res.role.delete(`Eliminado por orden agéntica de ${message.author.tag}`);
-                const embed = new EmbedBuilder()
-                  .setColor('#ED4245')
-                  .setTitle('🗑️ Rol Eliminado')
-                  .setDescription(`El rol **"${roleName}"** ha sido eliminado del servidor.`)
-                  .addFields({ name: '🛡️ Moderador', value: `${message.author}` })
-                  .setTimestamp();
-                await message.channel.send({ embeds: [embed] });
-                continue;
-              } else {
-                await message.reply(`⚠️ El rol **"${roleName}"** no existe en este servidor.`);
-                continue;
-              }
-            }
           }
 
           // 3. AUTOROL DE BIENVENIDA

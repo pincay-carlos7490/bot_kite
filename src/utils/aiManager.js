@@ -16,13 +16,30 @@ async function processAgenticAI(prompt, username = 'Usuario', guildRoles = [], g
   const tools = [{
     functionDeclarations: [
       {
+        name: 'crear_eliminar_rol',
+        description: 'Crea un nuevo rol en el servidor (opcionalmente configurando sus permisos globales de ver canales, escribir, ver historial y voz) o elimina un rol existente.',
+        parameters: {
+          type: Type.OBJECT,
+          properties: {
+            accion: { type: Type.STRING, description: '"crear" o "eliminar"' },
+            nombreRol: { type: Type.STRING, description: 'Nombre del rol.' },
+            color: { type: Type.STRING, description: 'Color del rol (ej: "gris", "azul", "rojo", "dorado", "#808080").' },
+            permitirVerCanales: { type: Type.BOOLEAN, description: 'True para permitir ver canales, False para denegar.' },
+            permitirEscribir: { type: Type.BOOLEAN, description: 'True para permitir escribir mensajes, False para prohibir (Rojo ❌).' },
+            permitirVerHistorial: { type: Type.BOOLEAN, description: 'True para permitir ver historial, False para prohibir.' },
+            permitirVoz: { type: Type.BOOLEAN, description: 'True para permitir unirse a voz, False para prohibir unirse a voz (Rojo ❌).' }
+          },
+          required: ['accion', 'nombreRol']
+        }
+      },
+      {
         name: 'configurar_permisos_canal',
         description: 'Modifica de forma inteligente CUALQUIER permiso de canal en Discord (crear encuestas, escribir, hilos públicos, hilos privados, ver canal, imágenes, reacciones, emojis externos, menciones, borrar mensajes, crear invitaciones, etc.) para cualquier rol o @everyone.',
         parameters: {
           type: Type.OBJECT,
           properties: {
             nombreCanal: { type: Type.STRING, description: 'Nombre o mención del canal a configurar (ej: "#memes" o "memes").' },
-            rolesObjetivo: { type: Type.STRING, description: 'Roles a los cuales modificar permisos (ej: "sobrevivientes", "everyone", "moderadores", "bots", "todos").' },
+            rolesObjetivo: { type: Type.STRING, description: 'Roles a los cuales modificar permisos (ej: "sobrevivientes", "everyone", "moderadores", "bots", "todos", "mute").' },
             permitirCrearEncuestas: { type: Type.BOOLEAN, description: 'True para permitir crear encuestas (Verde ✅), False para prohibir/denegar crear encuestas (Rojo ❌).' },
             permitirCrearHilosPublicos: { type: Type.BOOLEAN, description: 'True para permitir crear hilos públicos (Verde ✅), False para prohibir/denegar (Rojo ❌).' },
             permitirCrearHilosPrivados: { type: Type.BOOLEAN, description: 'True para permitir hilos privados, False para denegar.' },
@@ -102,19 +119,6 @@ async function processAgenticAI(prompt, username = 'Usuario', guildRoles = [], g
             nombreRolAgregar: { type: Type.STRING, description: 'Nombre del rol que se desea asignar/dar al usuario.' },
             nombreRolQuitar: { type: Type.STRING, description: 'Nombre del rol que se desea quitar/remover al usuario.' }
           }
-        }
-      },
-      {
-        name: 'crear_eliminar_rol',
-        description: 'Crea un nuevo rol en el servidor o elimina un rol existente.',
-        parameters: {
-          type: Type.OBJECT,
-          properties: {
-            accion: { type: Type.STRING, description: '"crear" o "eliminar"' },
-            nombreRol: { type: Type.STRING, description: 'Nombre del rol.' },
-            color: { type: Type.STRING, description: 'Color del rol (ej: "azul", "rojo", "dorado", "#FF5733").' }
-          },
-          required: ['accion', 'nombreRol']
         }
       },
       {
@@ -200,17 +204,16 @@ async function processAgenticAI(prompt, username = 'Usuario', guildRoles = [], g
   const guildSummary = guildContext.summary || 'Servidor Activo';
 
   const systemInstruction = 
-    `Tu nombre es KITE. Eres el Agente Autónomo Administrador Total de Discord con MEMORIA Y HISTORIAL DE CHAT COMPLETO.\n` +
+    `Tu nombre es KITE. Eres el Agente Autónomo Administrador Total de Discord con ACCESO, MEMORIA Y PODER COMPLETO SOBRE TODO EL SERVIDOR.\n` +
     `ESTADO ACTUAL DEL SERVIDOR:\n${guildSummary}\n\n` +
-    `REGLAS OBLIGATORIAS:\n` +
+    `REGLAS OBLIGATORIAS DE MEMORIA Y ADMINISTRACIÓN:\n` +
     `1. NUNCA te presentes de forma mecánica (PROHIBIDO decir "Hola, soy KITE...").\n` +
-    `2. Lee el HISTORIAL DE CHAT para recordar de qué venían hablando antes. Si el usuario "${username}" menciona un canal (ejemplo: "#memes"), EXTRAE ESE CANAL DIRECTAMENTE y no le preguntes qué canal es.\n` +
-    `3. Si el usuario te pide modificar permisos de encuestas (ejemplo: "crear encuestas"), usa "permitirCrearEncuestas": true o false.\n` +
-    `4. Si el usuario te pide modificar CUALQUIER permiso, INVOCA "configurar_permisos_canal" asignando las propiedades correspondientes de forma booleana (true para permitir, false para denegar).\n` +
-    `5. Si el usuario te hace una pregunta o habla contigo de forma normal, RESPONDE DE MANERA CONVERSACIONAL Y ALEGRE COMO UN AMIGO REAL.`;
+    `2. MEMORIA CONTINUA: Lee el HISTORIAL DE CHAT para recordar qué dijo el usuario y qué respondiste tú anteriormente.\n` +
+    `3. CREAR Y CONFIGURAR ROLES: Si el usuario "${username}" te pide crear un rol (ej: "crea un rol llamado mute de color gris que no pueda escribir ni ver historial ni unirse a voz"), INVOCA "crear_eliminar_rol" con accion: "crear", nombreRol: "mute", color: "Grey", permitirEscribir: false, permitirVerHistorial: false, permitirVoz: false.\n` +
+    `4. TIENES ACCESO COMPLETO a todos los comandos y modificaciones en el servidor. EJECUTA LAS HERRAMIENTAS DIRECTAMENTE sin pedir disculpas ni decir que no puedes.`;
 
   const promptWithMemory = chatHistory 
-    ? `${systemInstruction}\n\nHISTORIAL DE CHAT RECIENTE EN ESTE CANAL:\n${chatHistory}\n\n[Mensaje actual de ${username}]: ${prompt}`
+    ? `${systemInstruction}\n\nHISTORIAL DE CHAT Y EMBEDS RECIENTES DE KITE EN ESTE CANAL:\n${chatHistory}\n\n[Mensaje actual de ${username}]: ${prompt}`
     : `${systemInstruction}\n\n[Mensaje actual de ${username}]: ${prompt}`;
 
   const modelsToTry = [
