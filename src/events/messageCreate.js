@@ -14,21 +14,15 @@ module.exports = {
     const isToxic = await isInsultOrToxic(message.content);
 
     if (isToxic) {
-      let deleted = false;
       try {
-        if (message.deletable) {
-          await message.delete();
-          deleted = true;
-        }
+        await message.delete();
       } catch (err) {
         console.error('Error al intentar borrar el mensaje con insulto:', err.message);
       }
 
       try {
         const warningMsg = await message.channel.send({
-          content: deleted 
-            ? `⚠️ ${message.author}, tu mensaje fue eliminado porque contiene insultos o lenguaje no permitido.`
-            : `⚠️ ${message.author}, el filtro de IA detectó un insulto en tu mensaje. (Otorga el permiso de **Gestionar Mensajes** al rol del bot para borrarlo).`
+          content: `⚠️ ${message.author}, tu mensaje fue eliminado porque contiene insultos o lenguaje no permitido.`
         });
         setTimeout(() => {
           warningMsg.delete().catch(() => null);
