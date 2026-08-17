@@ -33,34 +33,35 @@ async function isInsultOrToxic(text) {
 function parseSemanticIntent(text, guildRoles = []) {
   const lower = text.toLowerCase();
 
+  const unlockVerbs = ['quita', 'remueve', 'elimina', 'deshaz', 'saca', 'fuera', 'desactiva', 'vaina', 'borra', 'apaga'];
+  const lockNouns = ['bloqueo', 'restriccion', 'restricción', 'candado', 'limite', 'límite', 'modo', 'regla', 'cerrojo'];
+
+  const containsUnlockVerb = unlockVerbs.some(v => lower.includes(v));
+  const containsLockNoun = lockNouns.some(n => lower.includes(n));
+
   // 1. UNRESTRICT_CHANNEL (Desbloquear / Quitar candado / Quitar restricción / Quitar bloqueo / Quitar esa vaina de bloqueo)
-  const isUnlockAction = 
+  if (
     lower.includes('desbloquea') || lower.includes('desbloquear') ||
     lower.includes('libera') || lower.includes('libérame') || lower.includes('liberame') ||
     lower.includes('abre') || lower.includes('abrir') ||
     lower.includes('desrestringe') || lower.includes('desrestringir') ||
-    (lower.includes('bloqueo') && (lower.includes('quita') || lower.includes('remueve') || lower.includes('elimina') || lower.includes('deshaz') || lower.includes('saca') || lower.includes('fuera') || lower.includes('vaina'))) ||
-    (lower.includes('restriccion') && (lower.includes('quita') || lower.includes('remueve') || lower.includes('elimina') || lower.includes('deshaz') || lower.includes('saca') || lower.includes('vaina'))) ||
-    (lower.includes('restricción') && (lower.includes('quita') || lower.includes('remueve') || lower.includes('elimina') || lower.includes('deshaz') || lower.includes('saca') || lower.includes('vaina'))) ||
-    (lower.includes('candado') && (lower.includes('quita') || lower.includes('remueve') || lower.includes('elimina') || lower.includes('saca')));
-
-  if (isUnlockAction) {
+    (containsUnlockVerb && containsLockNoun)
+  ) {
     return { intent: 'UNRESTRICT_CHANNEL' };
   }
 
   // 2. RESTRICT_CHANNEL (Bloquear / Restringir / Cerrar / Poner candado / Solo ciertos roles)
-  const isLockAction = 
+  if (
     lower.includes('restringe') || lower.includes('restringir') ||
     lower.includes('bloquea') || lower.includes('bloquear') || lower.includes('bloqueo') ||
     lower.includes('candado') || lower.includes('exclusivo') || lower.includes('restriccion') || lower.includes('restricción') ||
-    lower.includes('cierra') || lower.includes('cerrar') ||
-    (lower.includes('solo') && (lower.includes('escribir') || lower.includes('hablar') || lower.includes('rol') || lower.includes('puedan') || lower.includes('los'))) ||
-    (lower.includes('nadie') && (lower.includes('hable') || lower.includes('escriba') || lower.includes('salvo') || lower.includes('excepto'))) ||
-    (lower.includes('hace') && (lower.includes('canal') || lower.includes('chat'))) ||
-    (lower.includes('haz') && (lower.includes('canal') || lower.includes('chat'))) ||
-    (lower.includes('pon') && (lower.includes('canal') || lower.includes('chat')));
-
-  if (isLockAction) {
+    lower.includes('cierra') || lower.includes('cerrar') || lower.includes('cerrojo') ||
+    (lower.includes('solo') && (lower.includes('escribir') || lower.includes('hablar') || lower.includes('rol') || lower.includes('puedan') || lower.includes('los') || lower.includes('para'))) ||
+    (lower.includes('nadie') && (lower.includes('hable') || lower.includes('escriba') || lower.includes('salvo') || lower.includes('excepto') || lower.includes('pueda'))) ||
+    (lower.includes('hace') && (lower.includes('canal') || lower.includes('chat') || lower.includes('sitio'))) ||
+    (lower.includes('haz') && (lower.includes('canal') || lower.includes('chat') || lower.includes('sitio'))) ||
+    (lower.includes('pon') && (lower.includes('canal') || lower.includes('chat') || lower.includes('sitio')))
+  ) {
     let matchedRole = null;
     for (const r of guildRoles) {
       const rName = r.name.toLowerCase();
@@ -98,7 +99,7 @@ function parseSemanticIntent(text, guildRoles = []) {
   // 3. CLEAR_MESSAGES
   if (
     lower.includes('elimina') || lower.includes('borra') || lower.includes('purga') ||
-    lower.includes('limpia') || lower.includes('limpiar') || lower.includes('borrar')
+    lower.includes('limpia') || lower.includes('limpiar') || lower.includes('borrar') || lower.includes('barrer')
   ) {
     const numMatch = lower.match(/(\d+)/);
     const amount = numMatch ? parseInt(numMatch[1], 10) : 5;
@@ -116,7 +117,7 @@ function parseSemanticIntent(text, guildRoles = []) {
   }
 
   // 5. BAN_USER
-  if (lower.includes('banea') || lower.includes('banear') || lower.includes('sanciona') || lower.includes('saca a') || lower.includes('expulsa')) {
+  if (lower.includes('banea') || lower.includes('banear') || lower.includes('sanciona') || lower.includes('saca a') || lower.includes('expulsa') || lower.includes('sacalo')) {
     let duration = 'permanent';
     const timeMatch = lower.match(/(\d+)\s*(horas?|h|minutos?|m|dias?|d)/i);
     if (timeMatch) {
