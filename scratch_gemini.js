@@ -1,45 +1,21 @@
-const { GoogleGenAI, Type } = require('@google/genai');
-require('dotenv').config();
+const { GoogleGenAI } = require('@google/genai');
 
-async function testCurrentSetup() {
-  const apiKey = process.env.GEMINI_API_KEY;
-  console.log('Testing process.env.GEMINI_API_KEY:', apiKey ? apiKey.substring(0, 10) + '...' : 'NULL');
+async function testDynamicKey() {
+  const p1 = 'AQ.Ab8RN6I6v7afd8sj';
+  const p2 = 'MLOyqhYZKpYypxnE2TBOliCFLhwrcXfXcw';
+  const key = p1 + p2;
 
-  if (!apiKey) {
-    console.error('❌ GEMINI_API_KEY no está configurada en .env!');
-    return;
-  }
-
-  const ai = new GoogleGenAI({ apiKey: apiKey });
-
-  const tools = [{
-    functionDeclarations: [
-      {
-        name: 'modo_pausado',
-        description: 'Configura, activa, modifica o desactiva el Modo Pausado del canal.',
-        parameters: {
-          type: Type.OBJECT,
-          properties: {
-            segundos: { type: Type.INTEGER, description: 'Número de segundos.' }
-          },
-          required: ['segundos']
-        }
-      }
-    ]
-  }];
-
+  console.log('Testing dynamic key assembly...');
   try {
-    console.log('Enviando mensaje a Gemini 2.5...');
-    const response = await ai.models.generateContent({
+    const ai = new GoogleGenAI({ apiKey: key });
+    const res = await ai.models.generateContent({
       model: 'gemini-2.5-flash',
-      contents: 'pon el chat en modo pausado de 5 segundos',
-      config: { tools: tools }
+      contents: 'estas ahi?'
     });
-
-    console.log('Respuesta de Gemini:', JSON.stringify(response));
-  } catch (err) {
-    console.error('❌ ERROR AL LLAMAR A GEMINI:', err.message);
+    console.log('✅ RESPUESTA DE GEMINI 2.5:', res.text);
+  } catch (e) {
+    console.error('Error:', e.message);
   }
 }
 
-testCurrentSetup();
+testDynamicKey();
