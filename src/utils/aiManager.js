@@ -81,12 +81,17 @@ async function processAgenticAI(prompt, username = 'Usuario', guildRoles = [], g
       },
       {
         name: 'configurar_permisos_canal',
-        description: 'Modifica de forma inteligente CUALQUIER permiso de canal en Discord (crear encuestas, escribir, hilos públicos, hilos privados, ver canal, imágenes, reacciones, emojis externos, menciones, borrar mensajes, crear invitaciones, etc.) para cualquier rol o @everyone.',
+        description: 'Modifica de forma inteligente CUALQUIER permiso de canal en Discord (usar panel de sonidos / soundboard, sonidos externos, transmitir en vivo, hablar, conectar, crear encuestas, escribir, hilos públicos, hilos privados, ver canal, imágenes, reacciones, emojis externos, menciones, borrar mensajes, crear invitaciones, etc.) para cualquier rol o @everyone.',
         parameters: {
           type: Type.OBJECT,
           properties: {
-            nombreCanal: { type: Type.STRING, description: 'Nombre o mención del canal a configurar (ej: "#memes" o "memes").' },
+            nombreCanal: { type: Type.STRING, description: 'Nombre o mención del canal a configurar (ej: "#Reunion" o "Reunion" o "memes").' },
             rolesObjetivo: { type: Type.STRING, description: 'Roles a los cuales modificar permisos (ej: "sobrevivientes", "everyone", "moderadores", "bots", "todos", "mute").' },
+            permitirUsarPanelDeSonidos: { type: Type.BOOLEAN, description: 'True para permitir usar el panel de sonidos / soundboard (Verde ✅), False para prohibir (Rojo ❌).' },
+            permitirSonidosExternos: { type: Type.BOOLEAN, description: 'True para permitir usar sonidos externos de soundboard, False para prohibir.' },
+            permitirTransmitir: { type: Type.BOOLEAN, description: 'True para permitir transmitir en vivo / compartir pantalla (Stream), False para denegar.' },
+            permitirHablar: { type: Type.BOOLEAN, description: 'True para permitir hablar en voz (Speak), False para denegar.' },
+            permitirConectar: { type: Type.BOOLEAN, description: 'True para permitir conectar a canal de voz (Connect), False para denegar.' },
             permitirCrearEncuestas: { type: Type.BOOLEAN, description: 'True para permitir crear encuestas (Verde ✅), False para prohibir/denegar crear encuestas (Rojo ❌).' },
             permitirCrearHilosPublicos: { type: Type.BOOLEAN, description: 'True para permitir crear hilos públicos (Verde ✅), False para prohibir/denegar (Rojo ❌).' },
             permitirCrearHilosPrivados: { type: Type.BOOLEAN, description: 'True para permitir hilos privados, False para denegar.' },
@@ -233,16 +238,19 @@ async function processAgenticAI(prompt, username = 'Usuario', guildRoles = [], g
     `ESTADO ACTUAL DEL SERVIDOR:\n${guildSummary}\n\n` +
     `ERES UN AGENTE ADMINISTRADOR TOTAL (CERO LIMITACIONES):\n` +
     `1. NUNCA te presentes de forma mecánica (PROHIBIDO decir "Hola, soy KITE...").\n` +
-    `2. TIENES HERRAMIENTAS PARA TODO: Cambiar foto/icono del servidor, cambiar el nombre del servidor, crear emojis, cambiar apodos, silenciar en voz, crear y configurar roles, crear y editar canales, modificar permisos, controlar música, etc.\n` +
-    `3. Si el usuario "${username}" te pide permitir o prohibir ver canales a un rol, INVOCA "configurar_permisos_canal".\n` +
+    `2. TIENES HERRAMIENTAS PARA TODO: Panel de sonidos (soundboard), transmitir en vivo, hablar, conectar, cambiar foto/icono del servidor, cambiar el nombre del servidor, crear emojis, cambiar apodos, silenciar en voz, crear y configurar roles, crear y editar canales, modificar permisos, controlar música, etc.\n` +
+    `3. Si el usuario "${username}" te pide activar/permitir el panel de sonidos (soundboard), INVOCA "configurar_permisos_canal" asignando "permitirUsarPanelDeSonidos": true.\n` +
     `4. REGLA DE NO DUPLICACIÓN: Si lees en el HISTORIAL que ya se creó un rol o canal, actualiza sus permisos sin duplicarlo.`;
 
   const promptWithMemory = chatHistory 
     ? `${systemInstruction}\n\nHISTORIAL DE CHAT Y RESPUESTAS PREVIAS EN ESTE CANAL:\n${chatHistory}\n\n[Mensaje actual de ${username}]: ${prompt}`
     : `${systemInstruction}\n\n[Mensaje actual de ${username}]: ${prompt}`;
 
+  // Modelos oficiales compatibles con la API de GenAI
   const modelsToTry = [
-    'gemini-2.5-flash',
+    'gemini-1.5-flash',
+    'gemini-1.5-pro',
+    'gemini-2.0-flash',
     'gemini-flash-latest'
   ];
 
@@ -271,9 +279,34 @@ async function processAgenticAI(prompt, username = 'Usuario', guildRoles = [], g
   }
 
   // -------------------------------------------------------------
-  // MOTOR DE RESPALDO ULTRA-SEMÁNTICO INFALIBLE (FUNCIONA AÚN CON API 429)
+  // MOTOR DE RESPALDO ULTRA-SEMÁNTICO INFALIBLE (FUNCIONA AÚN CON API EN SOBRECARGA)
   // -------------------------------------------------------------
   const promptLower = prompt.toLowerCase();
+
+  if (promptLower.includes('soundboard') || promptLower.includes('panel de sonidos') || promptLower.includes('panel de sonido') || promptLower.includes('sonidos')) {
+    let chanMatch = prompt.match(/#([a-záéíóúñ0-9_\-]+)/i) || prompt.match(/canal\s+de\s+voz\s+de\s+([a-záéíóúñ0-9_\-]+)/i) || prompt.match(/canal\s+de\s+([a-záéíóúñ0-9_\-]+)/i) || prompt.match(/canal\s+([a-záéíóúñ0-9_\-]+)/i);
+    let targetChan = chanMatch ? chanMatch[1] : null;
+
+    let rolesObj = 'everyone';
+    if (promptLower.includes('sobreviviente')) rolesObj = 'sobrevivientes';
+    else if (promptLower.includes('mod')) rolesObj = 'moderadores';
+    else if (promptLower.includes('bot')) rolesObj = 'bots';
+    else if (promptLower.includes('mute')) rolesObj = 'mute';
+
+    const isDeny = promptLower.includes('no pueda') || promptLower.includes('no puedan') || promptLower.includes('quítale') || promptLower.includes('quitale') || promptLower.includes('prohib');
+
+    return {
+      type: 'tools',
+      functionCalls: [{
+        name: 'configurar_permisos_canal',
+        args: {
+          nombreCanal: targetChan || 'actual',
+          rolesObjetivo: rolesObj,
+          permitirUsarPanelDeSonidos: !isDeny
+        }
+      }]
+    };
+  }
 
   if (promptLower.includes('ver los canales') || promptLower.includes('ver el canal') || promptLower.includes('ver canales') || promptLower.includes('ver canal')) {
     let chanMatch = prompt.match(/#([a-záéíóúñ0-9_\-]+)/i) || prompt.match(/canal\s+de\s+([a-záéíóúñ0-9_\-]+)/i) || prompt.match(/canal\s+([a-záéíóúñ0-9_\-]+)/i);

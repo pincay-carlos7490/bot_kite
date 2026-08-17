@@ -393,9 +393,34 @@ module.exports = {
                 if (rolesToModify.length === 0) rolesToModify.push(message.guild.roles.everyone);
               }
 
-              // Matriz Completa y Universal de Permisos de Discord (Incluyendo Encuestas y Hilos)
+              // Matriz Completa y Universal de Permisos de Discord (Incluyendo Soundboard, Voz, Encuestas y Hilos)
               const overwritesObj = {};
               const summaryLines = [];
+
+              if (typeof args.permitirUsarPanelDeSonidos === 'boolean') {
+                overwritesObj[PermissionFlagsBits.UseSoundboard || 'UseSoundboard'] = args.permitirUsarPanelDeSonidos;
+                summaryLines.push(`• 🔊 **Usar Panel de Sonidos (Soundboard):** ${args.permitirUsarPanelDeSonidos ? 'PERMITIDO (Verde ✅)' : 'PROHIBIDO (Rojo ❌)'}`);
+              }
+
+              if (typeof args.permitirSonidosExternos === 'boolean') {
+                overwritesObj.UseExternalSounds = args.permitirSonidosExternos;
+                summaryLines.push(`• 🎵 **Usar Sonidos Externos:** ${args.permitirSonidosExternos ? 'PERMITIDO (Verde ✅)' : 'PROHIBIDO (Rojo ❌)'}`);
+              }
+
+              if (typeof args.permitirTransmitir === 'boolean') {
+                overwritesObj.Stream = args.permitirTransmitir;
+                summaryLines.push(`• 📹 **Transmitir en Vivo / Compartir Pantalla:** ${args.permitirTransmitir ? 'PERMITIDO (Verde ✅)' : 'PROHIBIDO (Rojo ❌)'}`);
+              }
+
+              if (typeof args.permitirHablar === 'boolean') {
+                overwritesObj.Speak = args.permitirHablar;
+                summaryLines.push(`• 🎙️ **Hablar en Voz:** ${args.permitirHablar ? 'PERMITIDO (Verde ✅)' : 'PROHIBIDO (Rojo ❌)'}`);
+              }
+
+              if (typeof args.permitirConectar === 'boolean') {
+                overwritesObj.Connect = args.permitirConectar;
+                summaryLines.push(`• 🔌 **Conectarse a Voz:** ${args.permitirConectar ? 'PERMITIDO (Verde ✅)' : 'PROHIBIDO (Rojo ❌)'}`);
+              }
 
               if (typeof args.permitirCrearEncuestas === 'boolean') {
                 overwritesObj[PermissionFlagsBits.SendPolls || 'SendPolls'] = args.permitirCrearEncuestas;
