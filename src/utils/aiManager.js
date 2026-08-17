@@ -1,10 +1,10 @@
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 
 async function askAI(prompt, username = 'Usuario') {
-  const apiKey = process.env.GEMINI_API_KEY;
+  const apiKey = process.env.GEMINI_API_KEY || 'AIzaSyBxTgSKswnNjrv4AmulMAef7Ma5C8ztAT4';
 
-  // 1. Si existe clave API oficial de Google Gemini
-  if (apiKey && apiKey !== 'tu_gemini_api_key_aqui') {
+  // 1. Usar la API oficial de Google Gemini 1.5 Flash
+  if (apiKey) {
     try {
       const genAI = new GoogleGenerativeAI(apiKey);
       const model = genAI.getGenerativeModel({ 
@@ -20,9 +20,8 @@ async function askAI(prompt, username = 'Usuario') {
     }
   }
 
-  // 2. Motor de IA de respaldo gratuito (Pollinations / Free AI) si no hay clave API configurada aún
+  // 2. Motor de IA de respaldo usando fetch nativo de Node.js (Sin librerías externas)
   try {
-    const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch(...args));
     const systemPrompt = encodeURIComponent(`Eres KITE, un asistente virtual de IA amigable y divertido en Discord. Responde en español de forma útil y entusiasta a ${username}.`);
     const userPrompt = encodeURIComponent(prompt);
     
