@@ -15,12 +15,18 @@ function getApiKeyPool() {
     }
   }
 
+  if (process.env.API_KEY && process.env.API_KEY.length > 20) {
+    if (!pool.includes(process.env.API_KEY)) {
+      pool.push(process.env.API_KEY);
+    }
+  }
+
   const k1 = 'AQ.Ab8RN6I6v7afd8sj';
   const k2 = 'MLOyqhYZKpYypxnE2TBOliCFLhwrcXfXcw';
-  const defaultKey = k1 + k2;
+  const fallbackKey = k1 + k2;
 
-  if (!pool.includes(defaultKey)) {
-    pool.push(defaultKey);
+  if (pool.length === 0) {
+    pool.push(fallbackKey);
   }
 
   return pool;
@@ -237,12 +243,10 @@ async function processAgenticAI(prompt, username = 'Usuario', guildRoles = [], g
     ? `${systemInstruction}\n\nHISTORIAL DE CHAT Y RESPUESTAS PREVIAS EN ESTE CANAL:\n${chatHistory}\n\n[Mensaje actual de ${username}]: ${prompt}`
     : `${systemInstruction}\n\n[Mensaje actual de ${username}]: ${prompt}`;
 
-  // Lista de modelos ampliada para usar cualquier cuota disponible de Google
+  // Lista oficial de modelos soportados por GenAI v1
   const modelsToTry = [
     'gemini-2.5-flash',
-    'gemini-flash-latest',
-    'gemini-2.0-flash-exp',
-    'gemini-1.5-flash-latest'
+    'gemini-flash-latest'
   ];
 
   for (const key of apiKeys) {
@@ -264,7 +268,7 @@ async function processAgenticAI(prompt, username = 'Usuario', guildRoles = [], g
           return { type: 'chat', text: response.text };
         }
       } catch (err) {
-        console.log(`Key (${key.substring(0, 6)}...) - Modelo ${modelName}: ${err.message ? err.message.substring(0, 50) : ''}...`);
+        console.log(`Key (${key.substring(0, 8)}...) - Modelo ${modelName}: ${err.message ? err.message.substring(0, 50) : ''}...`);
       }
     }
   }
