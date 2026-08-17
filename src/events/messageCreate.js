@@ -1,8 +1,8 @@
 const { Events, PermissionFlagsBits, EmbedBuilder } = require('discord.js');
 const { askAI } = require('../utils/aiManager');
-const { isInsultOrToxic, parseModerationIntent } = require('../utils/aiModeration');
+const { isInsultOrToxic, parseSemanticIntent } = require('../utils/aiModeration');
 const { addTempBan, removeTempBan } = require('../utils/tempbans');
-const { toggleChannelRestriction, findRoleInGuild } = require('../utils/channelRestrict');
+const { toggleChannelRestriction } = require('../utils/channelRestrict');
 
 module.exports = {
   name: Events.MessageCreate,
@@ -33,27 +33,14 @@ module.exports = {
     }
 
     // -------------------------------------------------------------
-    // CASO 2: Moderación Inteligente por Mención (@KITE banea, desbanea, borra, restringe...)
+    // CASO 2: Motor Agéntico de IA por Mención (@KITE) - Entendimiento Semántico Libre
     // -------------------------------------------------------------
     if (message.mentions.has(message.client.user) && !message.mentions.everyone) {
-      const content = message.content.toLowerCase();
+      const rolesList = Array.from(message.guild.roles.cache.values());
+      const intentResult = parseSemanticIntent(message.content, rolesList);
 
-      // A) ORDEN DE RESTRINGIR / DESBLOQUEAR CANAL EN LENGUAJE NATURAL
-      const isRestrictionOrder = 
-        content.includes('restringe') || 
-        content.includes('restringir') ||
-        content.includes('bloquea') || 
-        content.includes('bloquear') ||
-        content.includes('desbloquea') || 
-        content.includes('desbloquear') ||
-        content.includes('exclusivo') || 
-        content.includes('restriccion') || 
-        content.includes('restricción') ||
-        (content.includes('solo') && (content.includes('escribir') || content.includes('hablar') || content.includes('rol'))) ||
-        (content.includes('hace') && (content.includes('canal') || content.includes('chat'))) ||
-        (content.includes('pon') && (content.includes('canal') || content.includes('chat')));
-
-      if (isRestrictionOrder) {
+      // A) RESTRINGIR / CERRA / CANDADO EN CANAL
+      if (intentResult.intent === 'RESTRICT_CHANNEL') {
         if (!message.member.permissions.has(PermissionFlagsBits.ManageChannels) &&
             !message.member.permissions.has(PermissionFlagsBits.Administrator)) {
           return await message.reply('❌ No tienes permiso de **Gestionar Canales** para ejecutar esta acción.');
@@ -61,60 +48,59 @@ module.exports = {
 
         await message.channel.sendTyping();
 
-        const forceUnlock = content.includes('desbloquea') || content.includes('quita') || content.includes('remueve') || content.includes('desrestringe');
-
-        if (forceUnlock) {
-          try {
-            const result = await toggleChannelRestriction(message.channel, message.guild, null, true);
-            const embed = new EmbedBuilder()
-              .setColor('#57F287')
-              .setTitle('🔓 Modo Restringido Desactivado')
-              .setDescription(result.message)
-              .addFields({ name: '🛡️ Moderador', value: `${message.author}` })
-              .setTimestamp();
-            return await message.channel.send({ embeds: [embed] });
-          } catch (err) {
-            console.error('Error al desbloquear canal por mención:', err);
-            return await message.reply('❌ Ocurrió un error al intentar desbloquear el canal.');
-          }
-        }
-
-        // Búsqueda inteligente de rol por nombre sin importar mayúsculas/minúsculas ni erratas
-        const roleResult = findRoleInGuild(message.content, message.guild, message.mentions);
-
-        if (roleResult.status === 'not_found') {
-          return await message.reply(`⚠️ El rol **"${roleResult.requestedRoleName}"** no existe en este servidor. Por favor verifica los roles de tu servidor.`);
+        if (intentResult.status === 'not_found') {
+          return await message.reply(`⚠️ El rol **"${intentResult.requestedRoleName}"** no existe en este servidor. Por favor verifica los roles de tu servidor.`);
         }
 
         try {
-          const result = await toggleChannelRestriction(message.channel, message.guild, roleResult.role, false);
-
+          const result = await toggleChannelRestriction(message.channel, message.guild, intentResult.role, false);
           const embed = new EmbedBuilder()
             .setColor('#ED4245')
             .setTitle('🔒 Modo Restringido Activado')
             .setDescription(result.message)
             .addFields({ name: '🛡️ Moderador', value: `${message.author}` })
             .setTimestamp();
-
           return await message.channel.send({ embeds: [embed] });
         } catch (err) {
-          console.error('Error modificando canal por orden de IA:', err);
+          console.error('Error al restringir canal:', err);
           return await message.reply('❌ Ocurrió un error al intentar modificar los permisos del canal.');
         }
       }
 
-      // B) ORDEN DE ELIMINAR MENSAJES (@KITE elimina los 5 mensajes anteriores)
-      if (content.includes('elimina') || content.includes('borra') || content.includes('purga')) {
+      // B) DESBLOQUEAR / ABRIR / LIBERAR CANAL
+      if (intentResult.intent === 'UNRESTRICT_CHANNEL') {
+        if (!message.member.permissions.has(PermissionFlagsBits.ManageChannels) &&
+            !message.member.permissions.has(PermissionFlagsBits.Administrator)) {
+          return await message.reply('❌ No tienes permiso de **Gestionar Canales** para ejecutar esta acción.');
+        }
+
+        await message.channel.sendTyping();
+
+        try {
+          const result = await toggleChannelRestriction(message.channel, message.guild, null, true);
+          const embed = new EmbedBuilder()
+            .setColor('#57F287')
+            .setTitle('🔓 Modo Restringido Desactivado')
+            .setDescription(result.message)
+            .addFields({ name: '🛡️ Moderador', value: `${message.author}` })
+            .setTimestamp();
+          return await message.channel.send({ embeds: [embed] });
+        } catch (err) {
+          console.error('Error al desbloquear canal:', err);
+          return await message.reply('❌ Ocurrió un error al intentar desbloquear el canal.');
+        }
+      }
+
+      // C) ELIMINAR / LIMPIAR / PURGAR MENSAJES
+      if (intentResult.intent === 'CLEAR_MESSAGES') {
         if (!message.member.permissions.has(PermissionFlagsBits.ManageMessages)) {
           return await message.reply('❌ No tienes permiso de **Gestionar Mensajes** para ejecutar esta acción.');
         }
 
-        const parsed = await parseModerationIntent(message.content);
-        const amount = Math.min(Math.max(parsed?.amount || 5, 1), 100);
+        const amount = Math.min(Math.max(intentResult.amount || 5, 1), 100);
 
         try {
           const deleted = await message.channel.bulkDelete(amount + 1, true);
-          
           if (deleted.size <= 1) {
             return await message.reply('⚠️ No se pudieron borrar los mensajes porque son más antiguos de 14 días (Discord impide el borrado masivo de mensajes antiguos).');
           }
@@ -125,13 +111,13 @@ module.exports = {
           setTimeout(() => confirmMsg.delete().catch(() => null), 4000);
           return;
         } catch (err) {
-          console.error('Error borrando mensajes por orden de IA:', err);
-          return await message.reply('❌ No se pudieron borrar los mensajes en masa. Recuerda que Discord no permite eliminar en lote mensajes de más de 14 días de antigüedad.');
+          console.error('Error borrando mensajes:', err);
+          return await message.reply('❌ No se pudieron borrar los mensajes en masa. Recuerda que Discord impide eliminar mensajes de más de 14 días.');
         }
       }
 
-      // C) ORDEN DE DESBANEAR (@KITE desbanea a este usuario porque si xd)
-      if (content.includes('desbanea') || content.includes('unban') || content.includes('quita ban')) {
+      // D) DESBANEAR / LIBERAR BAN DE USUARIO
+      if (intentResult.intent === 'UNBAN_USER') {
         if (!message.member.permissions.has(PermissionFlagsBits.BanMembers)) {
           return await message.reply('❌ No tienes permiso de **Banear Miembros** para ejecutar esta acción.');
         }
@@ -140,14 +126,11 @@ module.exports = {
         const targetUserId = idMatch ? idMatch[0] : null;
 
         if (!targetUserId) {
-          return await message.reply('⚠️ Debes mencionar o escribir la ID del usuario a desbanear. Ejemplo: `@KITE desbanea a @usuario porque si xd`');
+          return await message.reply('⚠️ Debes mencionar o escribir la ID del usuario a desbanear.');
         }
 
-        const parsedIntent = await parseModerationIntent(message.content);
-        const reasonStr = parsedIntent?.reason || 'Desbaneo por orden de moderación';
-
         try {
-          await message.guild.bans.remove(targetUserId, `${reasonStr} (Por ${message.author.tag})`);
+          await message.guild.bans.remove(targetUserId, `${intentResult.reason} (Por ${message.author.tag})`);
           await removeTempBan(message.guild.id, targetUserId);
 
           const embed = new EmbedBuilder()
@@ -156,26 +139,26 @@ module.exports = {
             .setDescription(`El usuario con ID \`${targetUserId}\` ha sido desbaneado del servidor.`)
             .addFields(
               { name: '🛡️ Moderador', value: `${message.author}`, inline: true },
-              { name: '💬 Razón', value: reasonStr }
+              { name: '💬 Razón', value: intentResult.reason }
             )
             .setTimestamp();
 
           return await message.channel.send({ embeds: [embed] });
         } catch (unbanErr) {
           console.error('Error desbaneando usuario:', unbanErr);
-          return await message.reply('❌ No se encontró el ban de ese usuario en este servidor o ya fue desbaneado.');
+          return await message.reply('❌ No se encontró el ban de ese usuario en este servidor.');
         }
       }
 
-      // D) ORDEN DE BANEAR (@KITE banea a @usuario...)
-      if (content.includes('banea') || content.includes('banear') || content.includes('sanciona')) {
+      // E) BANEAR / EXPULSAR / SANCIONAR USUARIO
+      if (intentResult.intent === 'BAN_USER') {
         if (!message.member.permissions.has(PermissionFlagsBits.BanMembers)) {
           return await message.reply('❌ No tienes permiso de **Banear Miembros** para ejecutar esta acción.');
         }
 
         const targetMember = message.mentions.members.filter(m => m.id !== message.client.user.id).first();
         if (!targetMember) {
-          return await message.reply('⚠️ Debes mencionar al usuario que deseas banear. Ejemplo: `@KITE banea a @usuario por inactividad`');
+          return await message.reply('⚠️ Debes mencionar al usuario que deseas banear.');
         }
 
         if (targetMember.roles.highest.position >= message.member.roles.highest.position && message.guild.ownerId !== message.author.id) {
@@ -183,12 +166,11 @@ module.exports = {
         }
 
         if (!targetMember.bannable) {
-          return await message.reply('❌ No tengo permisos suficientes en el servidor para banear a este usuario.');
+          return await message.reply('❌ No tengo permisos suficientes para banear a este usuario.');
         }
 
-        const parsedIntent = await parseModerationIntent(message.content);
-        const durationStr = parsedIntent?.duration || 'permanent';
-        const reasonStr = parsedIntent?.reason || 'Sanción por orden de moderación';
+        const durationStr = intentResult.duration || 'permanent';
+        const reasonStr = intentResult.reason || 'Sanción por orden de moderación';
 
         let durationMs = 0;
         if (durationStr !== 'permanent') {
@@ -237,7 +219,7 @@ module.exports = {
         }
       }
 
-      // E) PREGUNTA NORMAL A LA IA
+      // F) PREGUNTA O CHARLA NORMAL CON LA IA
       const cleanPrompt = message.content.replace(/<@!?\d+>/g, '').trim();
       if (!cleanPrompt) {
         return message.reply('🤖 ¡Hola! ¿En qué te puedo ayudar hoy? Usa `/ia [pregunta]` o mencióname con tu duda.');
