@@ -39,14 +39,14 @@ module.exports = {
       const content = message.content.toLowerCase();
 
       // A) ORDEN DE RESTRINGIR / DESBLOQUEAR CANAL EN LENGUAJE NATURAL
-      if (content.includes('restringe') || content.includes('bloquea') || content.includes('desbloquea') || content.includes('exclusivo')) {
+      if (content.includes('restringe') || content.includes('bloquea') || content.includes('desbloquea') || content.includes('exclusivo') || content.includes('restriccion') || content.includes('restricción')) {
         if (!message.member.permissions.has(PermissionFlagsBits.ManageChannels) &&
             !message.member.permissions.has(PermissionFlagsBits.Administrator)) {
           return await message.reply('❌ No tienes permiso de **Gestionar Canales** para ejecutar esta acción.');
         }
 
         const targetRole = message.mentions.roles.first() || null;
-        const forceUnlock = content.includes('desbloquea') || content.includes('quita la restriccion') || content.includes('desrestringe');
+        const forceUnlock = content.includes('desbloquea') || content.includes('quita') || content.includes('remueve') || content.includes('desrestringe');
 
         try {
           const result = await toggleChannelRestriction(message.channel, message.guild, targetRole, forceUnlock);
