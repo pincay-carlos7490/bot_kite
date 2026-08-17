@@ -24,8 +24,15 @@ module.exports = {
     console.log(`📊 Servidores activos: ${client.guilds.cache.size}`);
     console.log(`========================================\n`);
 
-    // 5. Establecer estado del bot personalizado
-    client.user.setActivity('🌸 /help | /invitar', { type: ActivityType.Listening });
+    // 5. Establecer estado del bot personalizado (Burbuja flotante con cometa)
+    client.user.setPresence({
+      activities: [{
+        name: 'custom',
+        type: ActivityType.Custom,
+        state: '☄️ /help - bot-kite.onrender.com'
+      }],
+      status: 'online'
+    });
 
     // 6. Iniciar verificador automático de sanciones temporales
     initTempBanChecker(client);
