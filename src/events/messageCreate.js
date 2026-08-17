@@ -2,6 +2,7 @@ const { Events, PermissionFlagsBits, EmbedBuilder } = require('discord.js');
 const { askAI } = require('../utils/aiManager');
 const { isInsultOrToxic, parseModerationIntent } = require('../utils/aiModeration');
 const { addTempBan, removeTempBan } = require('../utils/tempbans');
+const { toggleChannelRestriction } = require('../utils/channelRestrict');
 
 module.exports = {
   name: Events.MessageCreate,
@@ -32,12 +33,39 @@ module.exports = {
     }
 
     // -------------------------------------------------------------
-    // CASO 2: Moderación Inteligente por Mención (@KITE banea, desbanea, borra...)
+    // CASO 2: Moderación Inteligente por Mención (@KITE banea, desbanea, borra, restringe...)
     // -------------------------------------------------------------
     if (message.mentions.has(message.client.user) && !message.mentions.everyone) {
       const content = message.content.toLowerCase();
 
-      // A) ORDEN DE ELIMINAR MENSAJES (@KITE elimina los 5 mensajes anteriores)
+      // A) ORDEN DE RESTRINGIR / DESBLOQUEAR CANAL EN LENGUAJE NATURAL
+      if (content.includes('restringe') || content.includes('bloquea') || content.includes('desbloquea') || content.includes('exclusivo')) {
+        if (!message.member.permissions.has(PermissionFlagsBits.ManageChannels) &&
+            !message.member.permissions.has(PermissionFlagsBits.Administrator)) {
+          return await message.reply('❌ No tienes permiso de **Gestionar Canales** para ejecutar esta acción.');
+        }
+
+        const targetRole = message.mentions.roles.first() || null;
+        const forceUnlock = content.includes('desbloquea') || content.includes('quita la restriccion') || content.includes('desrestringe');
+
+        try {
+          const result = await toggleChannelRestriction(message.channel, message.guild, targetRole, forceUnlock);
+
+          const embed = new EmbedBuilder()
+            .setColor(result.restricted ? '#ED4245' : '#57F287')
+            .setTitle(result.restricted ? '🔒 Modo Restringido Activado' : '🔓 Modo Restringido Desactivado')
+            .setDescription(result.message)
+            .addFields({ name: '🛡️ Moderador', value: `${message.author}` })
+            .setTimestamp();
+
+          return await message.channel.send({ embeds: [embed] });
+        } catch (err) {
+          console.error('Error modificando canal por orden de IA:', err);
+          return await message.reply('❌ Ocurrió un error al intentar modificar los permisos del canal.');
+        }
+      }
+
+      // B) ORDEN DE ELIMINAR MENSAJES (@KITE elimina los 5 mensajes anteriores)
       if (content.includes('elimina') || content.includes('borra') || content.includes('purga')) {
         if (!message.member.permissions.has(PermissionFlagsBits.ManageMessages)) {
           return await message.reply('❌ No tienes permiso de **Gestionar Mensajes** para ejecutar esta acción.');
@@ -59,7 +87,7 @@ module.exports = {
         }
       }
 
-      // B) ORDEN DE DESBANEAR (@KITE desbanea a este usuario porque si xd)
+      // C) ORDEN DE DESBANEAR (@KITE desbanea a este usuario porque si xd)
       if (content.includes('desbanea') || content.includes('unban') || content.includes('quita ban')) {
         if (!message.member.permissions.has(PermissionFlagsBits.BanMembers)) {
           return await message.reply('❌ No tienes permiso de **Banear Miembros** para ejecutar esta acción.');
@@ -96,7 +124,7 @@ module.exports = {
         }
       }
 
-      // C) ORDEN DE BANEAR (@KITE banea a @usuario...)
+      // D) ORDEN DE BANEAR (@KITE banea a @usuario...)
       if (content.includes('banea') || content.includes('banear') || content.includes('sanciona')) {
         if (!message.member.permissions.has(PermissionFlagsBits.BanMembers)) {
           return await message.reply('❌ No tienes permiso de **Banear Miembros** para ejecutar esta acción.');
@@ -166,7 +194,7 @@ module.exports = {
         }
       }
 
-      // D) PREGUNTA NORMAL A LA IA
+      // E) PREGUNTA NORMAL A LA IA
       const cleanPrompt = message.content.replace(/<@!?\d+>/g, '').trim();
       if (!cleanPrompt) {
         return message.reply('🤖 ¡Hola! ¿En qué te puedo ayudar hoy? Usa `/ia [pregunta]` o mencióname con tu duda.');

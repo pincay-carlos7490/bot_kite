@@ -22,9 +22,7 @@ async function isInsultOrToxic(text) {
         const result = response.text.trim().toUpperCase();
         return result.includes('INSULTO');
       }
-    } catch (err) {
-      // Si la API alcanza cuota, usar lista de respaldo
-    }
+    } catch (err) {}
   }
 
   const basicBadWords = ['puto', 'mierda', 'estupido', 'estúpido', 'pendejo', 'imbecil', 'imbécil', 'fuck', 'bitch', 'asshole', 'bastard', 'cero', 'perra'];
@@ -42,15 +40,19 @@ async function parseModerationIntent(text) {
 
       const prompt = 
         `Analiza la orden de moderación en lenguaje natural y extrae la intención en formato JSON estricto.\n` +
-        `Las posibles acciones son: "ban", "unban", "clear".\n\n` +
+        `Las posibles acciones son: "ban", "unban", "clear", "restrict", "unrestrict".\n\n` +
+        `Reglas para "restrict" (restringir/bloquear canal):\n` +
+        `- Responde: {"action": "restrict"}\n` +
+        `Reglas para "unrestrict" (desbloquear/quitar restricción de canal):\n` +
+        `- Responde: {"action": "unrestrict"}\n\n` +
         `Reglas para "ban":\n` +
-        `- Si el mensaje NO menciona un tiempo específico (o si dice "permanente"), usa "duration": "permanent".\n` +
-        `- Si especifica tiempo, conviértelo a formato de Discord (ejemplos: "10 horas" -> "10h", "30 minutos" -> "30m", "2 dias" -> "2d").\n` +
+        `- Si el mensaje NO menciona tiempo (o dice "permanente"), usa "duration": "permanent".\n` +
+        `- Si especifica tiempo, usa formato como "10h", "30m", "1d".\n` +
         `- Responde: {"action": "ban", "duration": "10h", "reason": "razon"}\n\n` +
         `Reglas para "unban":\n` +
         `- Responde: {"action": "unban", "reason": "razon"}\n\n` +
         `Reglas para "clear" (borrar mensajes):\n` +
-        `- Responde: {"action": "clear", "amount": 5} (donde amount es el número entero de mensajes a borrar).\n\n` +
+        `- Responde: {"action": "clear", "amount": 5}\n\n` +
         `Orden: "${text.replace(/"/g, '')}"`;
 
       const response = await ai.models.generateContent({
@@ -64,12 +66,18 @@ async function parseModerationIntent(text) {
           return JSON.parse(jsonMatch[0]);
         }
       }
-    } catch (err) {
-      // Ignorar si alcanza cuota
-    }
+    } catch (err) {}
   }
 
-  // Analizador NLP inteligente de respaldo (100% confiable y sin límites de API)
+  // Analizador NLP inteligente de respaldo
+  if (lowerText.includes('desbloquea') || lowerText.includes('quita la restriccion') || lowerText.includes('desrestringe')) {
+    return { action: 'unrestrict' };
+  }
+
+  if (lowerText.includes('restringe') || lowerText.includes('bloquea') || lowerText.includes('exclusivo')) {
+    return { action: 'restrict' };
+  }
+
   if (lowerText.includes('desbanea') || lowerText.includes('unban') || lowerText.includes('quita ban')) {
     let reason = 'Desbaneo por orden de moderación';
     if (lowerText.includes('por') || lowerText.includes('razon')) {
@@ -88,19 +96,16 @@ async function parseModerationIntent(text) {
   if (lowerText.includes('banea') || lowerText.includes('banear') || lowerText.includes('sanciona')) {
     let duration = 'permanent';
     const timeMatch = lowerText.match(/(\d+)\s*(horas?|h|minutos?|m|dias?|d)/i);
-
     if (timeMatch) {
       const num = timeMatch[1];
       const unit = timeMatch[2].toLowerCase()[0];
       duration = `${num}${unit}`;
     }
-
     let reason = 'Sanción por orden de moderación';
     if (lowerText.includes('por') || lowerText.includes('razon')) {
       const parts = text.split(/por|razon/i);
       if (parts.length > 1) reason = parts[parts.length - 1].trim();
     }
-
     return { action: 'ban', duration: duration, reason: reason };
   }
 
