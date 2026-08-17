@@ -19,7 +19,7 @@ async function isInsultOrToxic(text) {
   const matchesBasic = basicBadWords.some(w => lower.includes(w));
   if (matchesBasic) return true;
 
-  // Si el mensaje es muy corto y normal (ej: "hola", "tas viva?"), no gastar llamada a la IA
+  // Si el mensaje es muy corto y normal, no gastar llamada a la IA
   if (text.trim().length < 15 && !matchesBasic) return false;
 
   const apiKey = getActiveApiKey();
@@ -50,13 +50,26 @@ async function isInsultOrToxic(text) {
 function parseSemanticIntent(text, guildRoles = []) {
   const lower = text.toLowerCase();
 
+  // 1. MODO PAUSADO / SLOWMODE (ALTA PRIORIDAD)
+  if (
+    lower.includes('modo pausado') || lower.includes('modo lento') || lower.includes('slowmode') ||
+    lower.includes('pausado') || lower.includes('desacelera') || lower.includes('cooldown')
+  ) {
+    if (lower.includes('quita') || lower.includes('desactiva') || lower.includes('elimina') || lower.includes('remueve') || lower.includes('deshaz') || lower.includes('apaga')) {
+      return { intent: 'SLOWMODE', seconds: 0 };
+    }
+    const numMatch = lower.match(/(\d+)/);
+    const seconds = numMatch ? parseInt(numMatch[1], 10) : 5;
+    return { intent: 'SLOWMODE', seconds: seconds };
+  }
+
   const unlockVerbs = ['quita', 'remueve', 'elimina', 'deshaz', 'saca', 'fuera', 'desactiva', 'vaina', 'borra', 'apaga'];
-  const lockNouns = ['bloqueo', 'restriccion', 'restricción', 'candado', 'limite', 'límite', 'modo', 'regla', 'cerrojo'];
+  const lockNouns = ['bloqueo', 'restriccion', 'restricción', 'candado', 'limite', 'límite', 'regla', 'cerrojo'];
 
   const containsUnlockVerb = unlockVerbs.some(v => lower.includes(v));
   const containsLockNoun = lockNouns.some(n => lower.includes(n));
 
-  // 1. UNRESTRICT_CHANNEL (Desbloquear)
+  // 2. UNRESTRICT_CHANNEL (Desbloquear)
   if (
     lower.includes('desbloquea') || lower.includes('desbloquear') ||
     lower.includes('libera') || lower.includes('libérame') || lower.includes('liberame') ||
@@ -67,7 +80,7 @@ function parseSemanticIntent(text, guildRoles = []) {
     return { intent: 'UNRESTRICT_CHANNEL' };
   }
 
-  // 2. RESTRICT_CHANNEL (Bloquear / Restringir)
+  // 3. RESTRICT_CHANNEL (Bloquear / Restringir)
   if (
     lower.includes('restringe') || lower.includes('restringir') ||
     lower.includes('bloquea') || lower.includes('bloquear') || lower.includes('bloqueo') ||
@@ -113,7 +126,7 @@ function parseSemanticIntent(text, guildRoles = []) {
     return { intent: 'RESTRICT_CHANNEL', status: matchedRole ? 'found' : 'no_role', role: matchedRole };
   }
 
-  // 3. CLEAR_MESSAGES (Borrar / Eliminar / Limpiar / Purgar)
+  // 4. CLEAR_MESSAGES (Borrar / Eliminar / Limpiar / Purgar)
   if (
     lower.includes('elimina') || lower.includes('borra') || lower.includes('purga') ||
     lower.includes('limpia') || lower.includes('limpiar') || lower.includes('borrar') ||
@@ -124,7 +137,7 @@ function parseSemanticIntent(text, guildRoles = []) {
     return { intent: 'CLEAR_MESSAGES', amount: amount };
   }
 
-  // 4. UNBAN_USER
+  // 5. UNBAN_USER
   if (lower.includes('desbanea') || lower.includes('unban') || lower.includes('quita ban') || lower.includes('libérale el ban') || lower.includes('liberale el ban')) {
     let reason = 'Desbaneo por orden de moderación';
     if (lower.includes('por') || lower.includes('razon')) {
@@ -134,7 +147,7 @@ function parseSemanticIntent(text, guildRoles = []) {
     return { intent: 'UNBAN_USER', reason: reason };
   }
 
-  // 5. BAN_USER
+  // 6. BAN_USER
   if (lower.includes('banea') || lower.includes('banear') || lower.includes('sanciona') || lower.includes('saca a') || lower.includes('expulsa') || lower.includes('sacalo')) {
     let duration = 'permanent';
     const timeMatch = lower.match(/(\d+)\s*(horas?|h|minutos?|m|dias?|d)/i);

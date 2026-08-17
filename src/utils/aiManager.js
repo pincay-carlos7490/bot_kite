@@ -103,6 +103,9 @@ async function processAgenticAI(prompt, username = 'Usuario', guildRoles = []) {
 
   // 2. Escudo de Respaldo Semántico en caso extremo de fallo de red
   const semantic = parseSemanticIntent(prompt, guildRoles);
+  if (semantic.intent === 'SLOWMODE') {
+    return { type: 'tool', functionCall: { name: 'modo_pausado', args: { segundos: semantic.seconds } } };
+  }
   if (semantic.intent === 'UNRESTRICT_CHANNEL') {
     return { type: 'tool', functionCall: { name: 'restringir_canal', args: { desbloquear: true } } };
   }
