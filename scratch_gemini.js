@@ -1,33 +1,35 @@
-function parseSemanticIntent(text, rolesList = []) {
+function parseSemanticIntent(text, guildRoles = []) {
   const lower = text.toLowerCase();
 
-  // 1. DESBLOQUEAR CANAL
-  if (
+  // 1. UNRESTRICT_CHANNEL (Desbloquear / Quitar candado / Quitar restricción / Quitar bloqueo)
+  const isUnlockAction = 
     lower.includes('desbloquea') || lower.includes('desbloquear') ||
     lower.includes('libera') || lower.includes('libérame') || lower.includes('liberame') ||
     lower.includes('abre') || lower.includes('abrir') ||
-    lower.includes('quita la restriccion') || lower.includes('quita restriccion') ||
-    lower.includes('quita el candado') || lower.includes('sin restriccion') ||
-    lower.includes('desrestringe')
-  ) {
+    lower.includes('desrestringe') || lower.includes('desrestringir') ||
+    (lower.includes('bloqueo') && (lower.includes('quita') || lower.includes('remueve') || lower.includes('elimina') || lower.includes('deshaz') || lower.includes('saca') || lower.includes('fuera') || lower.includes('vaina'))) ||
+    (lower.includes('restriccion') && (lower.includes('quita') || lower.includes('remueve') || lower.includes('elimina') || lower.includes('deshaz') || lower.includes('saca') || lower.includes('vaina'))) ||
+    (lower.includes('candado') && (lower.includes('quita') || lower.includes('remueve') || lower.includes('elimina') || lower.includes('saca')));
+
+  if (isUnlockAction) {
     return { intent: 'UNRESTRICT_CHANNEL' };
   }
 
-  // 2. RESTRINGIR CANAL
-  if (
+  // 2. RESTRICT_CHANNEL (Bloquear / Restringir / Cerrar / Poner candado / Solo ciertos roles)
+  const isLockAction = 
     lower.includes('restringe') || lower.includes('restringir') ||
-    lower.includes('bloquea') || lower.includes('bloquear') || lower.includes('candado') ||
-    lower.includes('exclusivo') || lower.includes('restriccion') || lower.includes('restricción') ||
+    lower.includes('bloquea') || lower.includes('bloquear') || lower.includes('bloqueo') ||
+    lower.includes('candado') || lower.includes('exclusivo') || lower.includes('restriccion') || lower.includes('restricción') ||
     lower.includes('cierra') || lower.includes('cerrar') ||
-    (lower.includes('solo') && (lower.includes('escribir') || lower.includes('hablar') || lower.includes('rol') || lower.includes('puedan'))) ||
+    (lower.includes('solo') && (lower.includes('escribir') || lower.includes('hablar') || lower.includes('rol') || lower.includes('puedan') || lower.includes('los'))) ||
     (lower.includes('nadie') && (lower.includes('hable') || lower.includes('escriba') || lower.includes('salvo') || lower.includes('excepto'))) ||
     (lower.includes('hace') && (lower.includes('canal') || lower.includes('chat'))) ||
     (lower.includes('haz') && (lower.includes('canal') || lower.includes('chat'))) ||
-    (lower.includes('pon') && (lower.includes('canal') || lower.includes('chat')))
-  ) {
-    // Buscar si nombró algún rol del servidor
+    (lower.includes('pon') && (lower.includes('canal') || lower.includes('chat')));
+
+  if (isLockAction) {
     let matchedRole = null;
-    for (const r of rolesList) {
+    for (const r of guildRoles) {
       const rName = r.name.toLowerCase();
       const singular = rName.endsWith('s') ? rName.slice(0, -1) : rName;
       const plural = rName.endsWith('s') ? rName : rName + 's';
@@ -41,9 +43,8 @@ function parseSemanticIntent(text, rolesList = []) {
       }
     }
 
-    // Comprobar si intentó nombrar un rol que no existe
     if (!matchedRole) {
-      const keywords = ['rol', 'para los', 'solo para', 'para el', 'solo los', 'salvo los', 'excepto los'];
+      const keywords = ['rol', 'para los', 'solo para', 'para el', 'solo los', 'salvo los', 'excepto los', 'rol de'];
       for (const kw of keywords) {
         if (lower.includes(kw)) {
           const parts = lower.split(kw);
@@ -61,7 +62,7 @@ function parseSemanticIntent(text, rolesList = []) {
     return { intent: 'RESTRICT_CHANNEL', status: matchedRole ? 'found' : 'no_role', role: matchedRole };
   }
 
-  // 3. ELIMINAR MENSAJES
+  // 3. CLEAR_MESSAGES
   if (
     lower.includes('elimina') || lower.includes('borra') || lower.includes('purga') ||
     lower.includes('limpia') || lower.includes('limpiar') || lower.includes('borrar')
@@ -71,7 +72,7 @@ function parseSemanticIntent(text, rolesList = []) {
     return { intent: 'CLEAR_MESSAGES', amount: amount };
   }
 
-  // 4. DESBANEAR
+  // 4. UNBAN_USER
   if (lower.includes('desbanea') || lower.includes('unban') || lower.includes('quita ban') || lower.includes('libérale el ban') || lower.includes('liberale el ban')) {
     let reason = 'Desbaneo por orden de moderación';
     if (lower.includes('por') || lower.includes('razon')) {
@@ -81,7 +82,7 @@ function parseSemanticIntent(text, rolesList = []) {
     return { intent: 'UNBAN_USER', reason: reason };
   }
 
-  // 5. BANEAR
+  // 5. BAN_USER
   if (lower.includes('banea') || lower.includes('banear') || lower.includes('sanciona') || lower.includes('saca a') || lower.includes('expulsa')) {
     let duration = 'permanent';
     const timeMatch = lower.match(/(\d+)\s*(horas?|h|minutos?|m|dias?|d)/i);
@@ -109,17 +110,15 @@ const mockRoles = [
 ];
 
 const testPhrases = [
-  'hermano haz que nadie pueda hablar aquí salvo los moderadores',
-  'ponle candado a este sitio solo para los VIP',
-  'libérame este canal por fa',
-  'limpia un poco esta mugre borra 10 mensajes',
-  'saca a este vato de aquí por 5 horas porque molesta',
-  'pon este chat solo para el rol astronautas',
-  'dame un consejo para estudiar programación'
+  'ya quita esa vaina de bloqueo',
+  'quita el bloqueo de este canal',
+  'bloquea esta vaina solo para los moderadores',
+  'deshaz la restriccion',
+  'saca el candado de este chat'
 ];
 
-console.log('--- PRUEBA DEL MOTOR DE INTENCIONES SEMÁNTICAS TOTAL ---');
+console.log('--- PRUEBA DE FRASES REALES DEL USUARIO ---');
 for (const p of testPhrases) {
   const res = parseSemanticIntent(p, mockRoles);
-  console.log(`Frase: "${p}"\n   => Intent Extraído:`, res, '\n');
+  console.log(`Frase: "${p}"\n   => Intent:`, res, '\n');
 }

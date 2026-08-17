@@ -33,30 +33,34 @@ async function isInsultOrToxic(text) {
 function parseSemanticIntent(text, guildRoles = []) {
   const lower = text.toLowerCase();
 
-  // 1. DESBLOQUEAR CANAL
-  if (
+  // 1. UNRESTRICT_CHANNEL (Desbloquear / Quitar candado / Quitar restricción / Quitar bloqueo / Quitar esa vaina de bloqueo)
+  const isUnlockAction = 
     lower.includes('desbloquea') || lower.includes('desbloquear') ||
     lower.includes('libera') || lower.includes('libérame') || lower.includes('liberame') ||
     lower.includes('abre') || lower.includes('abrir') ||
-    lower.includes('quita la restriccion') || lower.includes('quita restriccion') ||
-    lower.includes('quita el candado') || lower.includes('sin restriccion') ||
-    lower.includes('desrestringe')
-  ) {
+    lower.includes('desrestringe') || lower.includes('desrestringir') ||
+    (lower.includes('bloqueo') && (lower.includes('quita') || lower.includes('remueve') || lower.includes('elimina') || lower.includes('deshaz') || lower.includes('saca') || lower.includes('fuera') || lower.includes('vaina'))) ||
+    (lower.includes('restriccion') && (lower.includes('quita') || lower.includes('remueve') || lower.includes('elimina') || lower.includes('deshaz') || lower.includes('saca') || lower.includes('vaina'))) ||
+    (lower.includes('restricción') && (lower.includes('quita') || lower.includes('remueve') || lower.includes('elimina') || lower.includes('deshaz') || lower.includes('saca') || lower.includes('vaina'))) ||
+    (lower.includes('candado') && (lower.includes('quita') || lower.includes('remueve') || lower.includes('elimina') || lower.includes('saca')));
+
+  if (isUnlockAction) {
     return { intent: 'UNRESTRICT_CHANNEL' };
   }
 
-  // 2. RESTRINGIR CANAL
-  if (
+  // 2. RESTRICT_CHANNEL (Bloquear / Restringir / Cerrar / Poner candado / Solo ciertos roles)
+  const isLockAction = 
     lower.includes('restringe') || lower.includes('restringir') ||
-    lower.includes('bloquea') || lower.includes('bloquear') || lower.includes('candado') ||
-    lower.includes('exclusivo') || lower.includes('restriccion') || lower.includes('restricción') ||
+    lower.includes('bloquea') || lower.includes('bloquear') || lower.includes('bloqueo') ||
+    lower.includes('candado') || lower.includes('exclusivo') || lower.includes('restriccion') || lower.includes('restricción') ||
     lower.includes('cierra') || lower.includes('cerrar') ||
     (lower.includes('solo') && (lower.includes('escribir') || lower.includes('hablar') || lower.includes('rol') || lower.includes('puedan') || lower.includes('los'))) ||
     (lower.includes('nadie') && (lower.includes('hable') || lower.includes('escriba') || lower.includes('salvo') || lower.includes('excepto'))) ||
     (lower.includes('hace') && (lower.includes('canal') || lower.includes('chat'))) ||
     (lower.includes('haz') && (lower.includes('canal') || lower.includes('chat'))) ||
-    (lower.includes('pon') && (lower.includes('canal') || lower.includes('chat')))
-  ) {
+    (lower.includes('pon') && (lower.includes('canal') || lower.includes('chat')));
+
+  if (isLockAction) {
     let matchedRole = null;
     for (const r of guildRoles) {
       const rName = r.name.toLowerCase();
@@ -91,7 +95,7 @@ function parseSemanticIntent(text, guildRoles = []) {
     return { intent: 'RESTRICT_CHANNEL', status: matchedRole ? 'found' : 'no_role', role: matchedRole };
   }
 
-  // 3. ELIMINAR MENSAJES
+  // 3. CLEAR_MESSAGES
   if (
     lower.includes('elimina') || lower.includes('borra') || lower.includes('purga') ||
     lower.includes('limpia') || lower.includes('limpiar') || lower.includes('borrar')
@@ -101,7 +105,7 @@ function parseSemanticIntent(text, guildRoles = []) {
     return { intent: 'CLEAR_MESSAGES', amount: amount };
   }
 
-  // 4. DESBANEAR
+  // 4. UNBAN_USER
   if (lower.includes('desbanea') || lower.includes('unban') || lower.includes('quita ban') || lower.includes('libérale el ban') || lower.includes('liberale el ban')) {
     let reason = 'Desbaneo por orden de moderación';
     if (lower.includes('por') || lower.includes('razon')) {
@@ -111,7 +115,7 @@ function parseSemanticIntent(text, guildRoles = []) {
     return { intent: 'UNBAN_USER', reason: reason };
   }
 
-  // 5. BANEAR
+  // 5. BAN_USER
   if (lower.includes('banea') || lower.includes('banear') || lower.includes('sanciona') || lower.includes('saca a') || lower.includes('expulsa')) {
     let duration = 'permanent';
     const timeMatch = lower.match(/(\d+)\s*(horas?|h|minutos?|m|dias?|d)/i);
