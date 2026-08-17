@@ -254,6 +254,56 @@ async function playMusicFromMessage(message, query) {
   }
 }
 
+async function stopMusic(context) {
+  const guildId = context.guild.id;
+  const serverQueue = queues.get(guildId);
+
+  if (!serverQueue) {
+    const msg = '❌ No me encuentro reproduciendo música en este servidor.';
+    if (context.reply) return await context.reply(msg);
+    return await context.channel.send(msg);
+  }
+
+  serverQueue.songs = [];
+  if (serverQueue.player) serverQueue.player.stop();
+  if (serverQueue.connection) serverQueue.connection.destroy();
+  queues.delete(guildId);
+
+  const embed = new EmbedBuilder()
+    .setColor('#ED4245')
+    .setTitle('⏹️ Música Detenida y Desconectado')
+    .setDescription('Me he desconectado del canal de voz y la lista de reproducción ha sido limpiada.')
+    .addFields({ name: '👤 Solicitado por', value: `${context.user || context.author}` });
+
+  if (context.reply) return await context.reply({ embeds: [embed] });
+  return await context.channel.send({ embeds: [embed] });
+}
+
+async function skipSong(context) {
+  const guildId = context.guild.id;
+  const serverQueue = queues.get(guildId);
+
+  if (!serverQueue || serverQueue.songs.length === 0) {
+    const msg = '❌ No hay ninguna canción en la cola para saltar.';
+    if (context.reply) return await context.reply(msg);
+    return await context.channel.send(msg);
+  }
+
+  const currentSong = serverQueue.songs[0];
+  if (serverQueue.player) {
+    serverQueue.player.stop();
+  }
+
+  const embed = new EmbedBuilder()
+    .setColor('#57F287')
+    .setTitle('⏭️ Canción Saltada por IA')
+    .setDescription(`Se ha saltado **[${currentSong.title}](${currentSong.url})**. Pasando a la siguiente canción en la lista...`)
+    .addFields({ name: '👤 Solicitado por', value: `${context.user || context.author}` });
+
+  if (context.reply) return await context.reply({ embeds: [embed] });
+  return await context.channel.send({ embeds: [embed] });
+}
+
 module.exports = {
   queues,
   getQueue,
@@ -261,4 +311,6 @@ module.exports = {
   playNextSong,
   initMusicEngine,
   playMusicFromMessage,
+  stopMusic,
+  skipSong,
 };

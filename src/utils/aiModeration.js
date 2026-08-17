@@ -15,11 +15,9 @@ async function isInsultOrToxic(text) {
   const basicBadWords = ['puto', 'mierda', 'estupido', 'estúpido', 'pendejo', 'imbecil', 'imbécil', 'fuck', 'bitch', 'asshole', 'bastard', 'cero', 'perra'];
   const lower = text.toLowerCase();
 
-  // Comprobación rápida local para evitar consumir cuota innecesariamente
   const matchesBasic = basicBadWords.some(w => lower.includes(w));
   if (matchesBasic) return true;
 
-  // Si el mensaje es muy corto y normal, no gastar llamada a la IA
   if (text.trim().length < 15 && !matchesBasic) return false;
 
   const apiKey = getActiveApiKey();
@@ -50,7 +48,39 @@ async function isInsultOrToxic(text) {
 function parseSemanticIntent(text, guildRoles = []) {
   const lower = text.toLowerCase();
 
-  // 1. MODO PAUSADO / SLOWMODE (ALTA PRIORIDAD)
+  // 1. DESCONECTAR / STOP MÚSICA (PRIORIDAD)
+  if (
+    lower.includes('desconéctate') || lower.includes('desconectate') || lower.includes('sal del canal de voz') ||
+    lower.includes('desconecta') || lower.includes('apaga la música') || lower.includes('apaga la musica') ||
+    lower.includes('para la música') || lower.includes('para la musica') || lower.includes('detén la música') || lower.includes('deten la musica') ||
+    lower.includes('stop')
+  ) {
+    return { intent: 'STOP_MUSIC' };
+  }
+
+  // 2. SALTAR / SKIP CANCIÓN
+  if (
+    lower.includes('salta') || lower.includes('saltar') || lower.includes('siguiente canción') ||
+    lower.includes('siguiente cancion') || lower.includes('pasa a la siguiente') || lower.includes('skip') ||
+    (lower.includes('siguiente') && lower.includes('cancion'))
+  ) {
+    return { intent: 'SKIP_MUSIC' };
+  }
+
+  // 3. MÚSICA / REPRODUCIR
+  if (
+    lower.includes('reproduce') || lower.includes('reproducir') || lower.includes('pon la cancion') ||
+    lower.includes('pon la canción') || lower.includes('pon música') || lower.includes('pon musica') ||
+    lower.includes('ponme la cancion') || lower.includes('ponme la canción') || lower.includes('sintoniza') ||
+    (lower.includes('canal de voz') && (lower.includes('pon') || lower.includes('entra') || lower.includes('suena')))
+  ) {
+    const cleanQuery = text.replace(/<@!?\d+>/g, '')
+      .replace(/reproduce|reproducir|ponme la cancion|ponme la canción|pon la cancion|pon la canción|pon musica|pon música|entra al canal de voz|en el que estoy|y reproduce esta cancion|y reproduce esta canción|cancion|canción|esta|esta/gi, '')
+      .trim();
+    return { intent: 'PLAY_MUSIC', query: cleanQuery || text };
+  }
+
+  // 4. MODO PAUSADO / SLOWMODE (ALTA PRIORIDAD)
   if (
     lower.includes('modo pausado') || lower.includes('modo lento') || lower.includes('slowmode') ||
     lower.includes('pausado') || lower.includes('desacelera') || lower.includes('cooldown')
@@ -69,7 +99,7 @@ function parseSemanticIntent(text, guildRoles = []) {
   const containsUnlockVerb = unlockVerbs.some(v => lower.includes(v));
   const containsLockNoun = lockNouns.some(n => lower.includes(n));
 
-  // 2. UNRESTRICT_CHANNEL (Desbloquear)
+  // 5. UNRESTRICT_CHANNEL (Desbloquear)
   if (
     lower.includes('desbloquea') || lower.includes('desbloquear') ||
     lower.includes('libera') || lower.includes('libérame') || lower.includes('liberame') ||
@@ -80,7 +110,7 @@ function parseSemanticIntent(text, guildRoles = []) {
     return { intent: 'UNRESTRICT_CHANNEL' };
   }
 
-  // 3. RESTRICT_CHANNEL (Bloquear / Restringir)
+  // 6. RESTRICT_CHANNEL (Bloquear / Restringir)
   if (
     lower.includes('restringe') || lower.includes('restringir') ||
     lower.includes('bloquea') || lower.includes('bloquear') || lower.includes('bloqueo') ||
@@ -126,7 +156,7 @@ function parseSemanticIntent(text, guildRoles = []) {
     return { intent: 'RESTRICT_CHANNEL', status: matchedRole ? 'found' : 'no_role', role: matchedRole };
   }
 
-  // 4. CLEAR_MESSAGES (Borrar / Eliminar / Limpiar / Purgar)
+  // 7. CLEAR_MESSAGES
   if (
     lower.includes('elimina') || lower.includes('borra') || lower.includes('purga') ||
     lower.includes('limpia') || lower.includes('limpiar') || lower.includes('borrar') ||
@@ -137,7 +167,7 @@ function parseSemanticIntent(text, guildRoles = []) {
     return { intent: 'CLEAR_MESSAGES', amount: amount };
   }
 
-  // 5. UNBAN_USER
+  // 8. UNBAN_USER
   if (lower.includes('desbanea') || lower.includes('unban') || lower.includes('quita ban') || lower.includes('libérale el ban') || lower.includes('liberale el ban')) {
     let reason = 'Desbaneo por orden de moderación';
     if (lower.includes('por') || lower.includes('razon')) {
@@ -147,7 +177,7 @@ function parseSemanticIntent(text, guildRoles = []) {
     return { intent: 'UNBAN_USER', reason: reason };
   }
 
-  // 6. BAN_USER
+  // 9. BAN_USER
   if (lower.includes('banea') || lower.includes('banear') || lower.includes('sanciona') || lower.includes('saca a') || lower.includes('expulsa') || lower.includes('sacalo')) {
     let duration = 'permanent';
     const timeMatch = lower.match(/(\d+)\s*(horas?|h|minutos?|m|dias?|d)/i);

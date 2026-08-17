@@ -3,7 +3,7 @@ const { processAgenticAI } = require('../utils/aiManager');
 const { isInsultOrToxic } = require('../utils/aiModeration');
 const { addTempBan, removeTempBan } = require('../utils/tempbans');
 const { toggleChannelRestriction, findRoleInGuild } = require('../utils/channelRestrict');
-const { playMusicFromMessage } = require('../utils/musicManager');
+const { playMusicFromMessage, stopMusic, skipSong } = require('../utils/musicManager');
 const GuildConfig = require('../database/models/GuildConfig');
 
 module.exports = {
@@ -53,6 +53,16 @@ module.exports = {
         if (name === 'reproducir_musica') {
           const query = args.busqueda || cleanPrompt;
           return await playMusicFromMessage(message, query);
+        }
+
+        // 0. DESCONECTAR MÚSICA / SALIR DEL CANAL DE VOZ POR IA
+        if (name === 'desconectar_musica') {
+          return await stopMusic(message);
+        }
+
+        // 0. SALTAR CANCIÓN / SKIP POR IA
+        if (name === 'saltar_cancion') {
+          return await skipSong(message);
         }
 
         // 1. GESTIONAR ROL DE USUARIO (DALE / QUÍTALE UN ROL A UN USUARIO)

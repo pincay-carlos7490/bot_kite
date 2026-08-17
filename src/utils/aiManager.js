@@ -27,6 +27,22 @@ async function processAgenticAI(prompt, username = 'Usuario', guildRoles = []) {
         }
       },
       {
+        name: 'desconectar_musica',
+        description: 'Desconectar el bot del canal de voz, salir del canal, apagar o detener la música.',
+        parameters: {
+          type: Type.OBJECT,
+          properties: {}
+        }
+      },
+      {
+        name: 'saltar_cancion',
+        description: 'Saltar la canción actual y pasar a la siguiente canción en la lista de reproducción.',
+        parameters: {
+          type: Type.OBJECT,
+          properties: {}
+        }
+      },
+      {
         name: 'gestionar_rol_usuario',
         description: 'Asigna o quita roles a un usuario específico del servidor.',
         parameters: {
@@ -148,7 +164,7 @@ async function processAgenticAI(prompt, username = 'Usuario', guildRoles = []) {
     `Tu nombre es KITE. Eres el Administrador y Reproductor de Música Agéntico Autónomo de Discord, con personalidad alegre, proactiva y cercana.\n` +
     `REGLAS OBLIGATORIAS:\n` +
     `1. NUNCA te presentes de forma mecánica (PROHIBIDO decir "Hola, soy KITE...").\n` +
-    `2. Si el usuario "${username}" te pide reproducir música, entrar al canal de voz y poner una canción, o cualquier orden de administración (crear/editar/borrar roles, asignar/quitar roles, autorol, canales, modo pausado, borrar mensajes, banear/desbanear), EJECUTA LA FUNCIÓN CORRESPONDIENTE sin rodeos.\n` +
+    `2. Si el usuario "${username}" te pide reproducir música, desconectarse del canal de voz, saltar a la siguiente canción, o cualquier orden de administración (crear/editar/borrar roles, asignar/quitar roles, autorol, canales, modo pausado, borrar mensajes, banear/desbanear), EJECUTA LA FUNCIÓN CORRESPONDIENTE sin rodeos.\n` +
     `3. Si el usuario te hace una pregunta o habla contigo de forma normal, RESPONDE DE MANERA CONVERSACIONAL Y ALEGRE COMO UN AMIGO REAL.`;
 
   // Bucle de Conmutación Automática por 503 (Alta Demanda) o 429 (Cuota)
@@ -186,6 +202,12 @@ async function processAgenticAI(prompt, username = 'Usuario', guildRoles = []) {
 
   // Escudo de Respaldo Semántico
   const semantic = parseSemanticIntent(prompt, guildRoles);
+  if (semantic.intent === 'STOP_MUSIC') {
+    return { type: 'tool', functionCall: { name: 'desconectar_musica', args: {} } };
+  }
+  if (semantic.intent === 'SKIP_MUSIC') {
+    return { type: 'tool', functionCall: { name: 'saltar_cancion', args: {} } };
+  }
   if (semantic.intent === 'PLAY_MUSIC') {
     return { type: 'tool', functionCall: { name: 'reproducir_musica', args: { busqueda: semantic.query } } };
   }
@@ -204,11 +226,8 @@ async function processAgenticAI(prompt, username = 'Usuario', guildRoles = []) {
   if (semantic.intent === 'BAN_USER') {
     return { type: 'tool', functionCall: { name: 'banear_usuario', args: { duracion: semantic.duration, razon: semantic.reason } } };
   }
-  if (semantic.intent === 'UNBAN_USER') {
-    return { type: 'tool', functionCall: { name: 'desbanear_usuario', args: { razon: semantic.reason } } };
-  }
 
-  return { type: 'chat', text: `¡Hola ${username}! 😊 Estoy totalmente aquí y listo para reproducir música o ayudarte.` };
+  return { type: 'chat', text: `¡Hola ${username}! 😊 Estoy totalmente aquí y listo para ayudarte.` };
 }
 
 async function askAI(prompt, username = 'Usuario') {
