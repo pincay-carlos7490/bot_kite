@@ -23,6 +23,12 @@ module.exports = {
       )
       .addFields(
         {
+          name: '🧠 Inteligencia Artificial (IA)',
+          value: '` /ia ` • Realiza preguntas o conversas con la IA.\n' +
+                 '` @KITE ` • Menciona al bot en cualquier canal para chatear con IA.',
+          inline: false
+        },
+        {
           name: '🎵 Música y Llamadas',
           value: '` /play ` • Reproduce canciones de YouTube/SoundCloud.\n' +
                  '` /skip ` • Salta a la siguiente canción en cola.\n' +
