@@ -25,25 +25,33 @@ async function askAI(prompt, username = 'Usuario') {
         return response.text;
       }
     } catch (err) {
-      console.error('Error con Google Gemini API, intentando motor de respaldo:', err.message);
+      // Si falla Google por cuota o API key, continuar al motor de respaldo
     }
   }
 
-  // 2. Motor de IA de respaldo usando fetch nativo de Node.js
+  // 2. Motor de IA de respaldo usando POST nativo a Pollinations AI (100% gratuito y sin límites)
   try {
-    const systemPrompt = encodeURIComponent(systemInstruction);
-    const userPrompt = encodeURIComponent(prompt);
-    
-    const res = await fetch(`https://text.pollinations.ai/${userPrompt}?system=${systemPrompt}`);
+    const res = await fetch('https://text.pollinations.ai/', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        messages: [
+          { role: 'system', content: systemInstruction },
+          { role: 'user', content: `[${username}]: ${prompt}` }
+        ],
+        model: 'openai'
+      })
+    });
+
     if (res.ok) {
       const text = await res.text();
-      if (text && text.length > 0) return text;
+      if (text && text.trim().length > 0) return text.trim();
     }
   } catch (err) {
     console.error('Error en motor de IA de respaldo:', err.message);
   }
 
-  return 'Tranqui, dame un segundito que se cruzaron los cables. Vuelve a preguntarme en un instante ✨';
+  return '¡Todo bien por aquí! 🍃 Dime en qué te puedo ayudar o qué quieres hacer en el servidor.';
 }
 
 module.exports = {

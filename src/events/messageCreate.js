@@ -39,7 +39,21 @@ module.exports = {
       const content = message.content.toLowerCase();
 
       // A) ORDEN DE RESTRINGIR / DESBLOQUEAR CANAL EN LENGUAJE NATURAL
-      if (content.includes('restringe') || content.includes('bloquea') || content.includes('desbloquea') || content.includes('exclusivo') || content.includes('restriccion') || content.includes('restricción')) {
+      const isRestrictionOrder = 
+        content.includes('restringe') || 
+        content.includes('restringir') ||
+        content.includes('bloquea') || 
+        content.includes('bloquear') ||
+        content.includes('desbloquea') || 
+        content.includes('desbloquear') ||
+        content.includes('exclusivo') || 
+        content.includes('restriccion') || 
+        content.includes('restricción') ||
+        (content.includes('solo') && (content.includes('escribir') || content.includes('hablar') || content.includes('rol'))) ||
+        (content.includes('hace') && (content.includes('canal') || content.includes('chat'))) ||
+        (content.includes('pon') && (content.includes('canal') || content.includes('chat')));
+
+      if (isRestrictionOrder) {
         if (!message.member.permissions.has(PermissionFlagsBits.ManageChannels) &&
             !message.member.permissions.has(PermissionFlagsBits.Administrator)) {
           return await message.reply('❌ No tienes permiso de **Gestionar Canales** para ejecutar esta acción.');
@@ -65,7 +79,7 @@ module.exports = {
           }
         }
 
-        // Búsqueda inteligente de rol por nombre sin necesidad de poner @
+        // Búsqueda inteligente de rol por nombre sin importar mayúsculas/minúsculas ni erratas
         const roleResult = findRoleInGuild(message.content, message.guild, message.mentions);
 
         if (roleResult.status === 'not_found') {

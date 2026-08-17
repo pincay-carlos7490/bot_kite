@@ -8,14 +8,13 @@ function findRoleInGuild(text, guild, messageMentions = null) {
   const lowerText = text.toLowerCase();
   const roles = guild.roles.cache.filter(r => r.id !== guild.roles.everyone.id && !r.managed);
 
-  // 2. Buscar si algún nombre de rol existente en el servidor se encuentra en el texto
+  // 2. Buscar si algún nombre de rol existente en el servidor coincide (sin importar mayúsculas, minúsculas, plurale o singulares)
   for (const [id, role] of roles) {
     const roleName = role.name.toLowerCase();
     const singularName = roleName.endsWith('s') ? roleName.slice(0, -1) : roleName;
     const pluralName = roleName.endsWith('s') ? roleName : roleName + 's';
 
-    // Omitir nombres genéricos que ya forman parte de la regla estándar (Admins/Mods/Bots)
-    const genericNames = ['administrador', 'administradores', 'admin', 'admins', 'moderador', 'moderadores', 'mod', 'mods', 'bot', 'bots'];
+    const genericNames = ['administrador', 'administradores', 'admin', 'admins', 'bot', 'bots'];
     if (genericNames.includes(roleName)) continue;
 
     if (lowerText.includes(roleName) || (singularName.length > 2 && lowerText.includes(singularName)) || lowerText.includes(pluralName)) {
@@ -23,13 +22,18 @@ function findRoleInGuild(text, guild, messageMentions = null) {
     }
   }
 
-  // 3. Comprobar si el usuario nombró explícitamente un rol que NO existe en el servidor
-  const roleKeywordsMatch = text.match(/(?:rol|rol de|para el rol|solo para el rol|solo para los|para los)\s+([a-zA-Z0-9_áéíóúÁÉÍÓÚñÑ]+)/i);
-  if (roleKeywordsMatch) {
-    const potentialRoleName = roleKeywordsMatch[1].trim();
-    const commonWords = ['que', 'los', 'el', 'un', 'una', 'este', 'chat', 'canal', 'administradores', 'moderadores', 'bots', 'todos', 'miembros'];
-    if (!commonWords.includes(potentialRoleName.toLowerCase())) {
-      return { status: 'not_found', requestedRoleName: potentialRoleName };
+  // 3. Comprobar si el usuario intentó nombrar un rol específico que NO existe en el servidor
+  const keywords = ['rol', 'para los', 'solo para', 'para el', 'solo los', 'solo los que tengan el rol', 'rol de'];
+  for (const kw of keywords) {
+    if (lowerText.includes(kw)) {
+      const parts = lowerText.split(kw);
+      if (parts.length > 1) {
+        const afterKw = parts[1].trim().split(/\s+/)[0];
+        const commonIgnored = ['que', 'los', 'el', 'un', 'una', 'este', 'chat', 'canal', 'administradores', 'moderadores', 'bots', 'puedan', 'escribir'];
+        if (afterKw && !commonIgnored.includes(afterKw)) {
+          return { status: 'not_found', requestedRoleName: afterKw };
+        }
+      }
     }
   }
 
