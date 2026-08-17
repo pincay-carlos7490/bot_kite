@@ -2,7 +2,7 @@ const { Events, PermissionFlagsBits, EmbedBuilder } = require('discord.js');
 const { askAI } = require('../utils/aiManager');
 const { isInsultOrToxic, parseModerationIntent } = require('../utils/aiModeration');
 const { addTempBan, removeTempBan } = require('../utils/tempbans');
-const { toggleChannelRestriction } = require('../utils/channelRestrict');
+const { toggleChannelRestriction, findRoleInGuild } = require('../utils/channelRestrict');
 
 module.exports = {
   name: Events.MessageCreate,
@@ -47,15 +47,37 @@ module.exports = {
 
         await message.channel.sendTyping();
 
-        const targetRole = message.mentions.roles.first() || null;
         const forceUnlock = content.includes('desbloquea') || content.includes('quita') || content.includes('remueve') || content.includes('desrestringe');
 
+        if (forceUnlock) {
+          try {
+            const result = await toggleChannelRestriction(message.channel, message.guild, null, true);
+            const embed = new EmbedBuilder()
+              .setColor('#57F287')
+              .setTitle('🔓 Modo Restringido Desactivado')
+              .setDescription(result.message)
+              .addFields({ name: '🛡️ Moderador', value: `${message.author}` })
+              .setTimestamp();
+            return await message.channel.send({ embeds: [embed] });
+          } catch (err) {
+            console.error('Error al desbloquear canal por mención:', err);
+            return await message.reply('❌ Ocurrió un error al intentar desbloquear el canal.');
+          }
+        }
+
+        // Búsqueda inteligente de rol por nombre sin necesidad de poner @
+        const roleResult = findRoleInGuild(message.content, message.guild, message.mentions);
+
+        if (roleResult.status === 'not_found') {
+          return await message.reply(`⚠️ El rol **"${roleResult.requestedRoleName}"** no existe en este servidor. Por favor verifica los roles de tu servidor.`);
+        }
+
         try {
-          const result = await toggleChannelRestriction(message.channel, message.guild, targetRole, forceUnlock);
+          const result = await toggleChannelRestriction(message.channel, message.guild, roleResult.role, false);
 
           const embed = new EmbedBuilder()
-            .setColor(result.restricted ? '#ED4245' : '#57F287')
-            .setTitle(result.restricted ? '🔒 Modo Restringido Activado' : '🔓 Modo Restringido Desactivado')
+            .setColor('#ED4245')
+            .setTitle('🔒 Modo Restringido Activado')
             .setDescription(result.message)
             .addFields({ name: '🛡️ Moderador', value: `${message.author}` })
             .setTimestamp();
@@ -77,7 +99,6 @@ module.exports = {
         const amount = Math.min(Math.max(parsed?.amount || 5, 1), 100);
 
         try {
-          // filterOld = true evita errores si hay mensajes de más de 14 días
           const deleted = await message.channel.bulkDelete(amount + 1, true);
           
           if (deleted.size <= 1) {

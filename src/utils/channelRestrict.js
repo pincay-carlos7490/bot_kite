@@ -1,5 +1,41 @@
 const { PermissionFlagsBits } = require('discord.js');
 
+function findRoleInGuild(text, guild, messageMentions = null) {
+  // 1. Si hay una mención explícita a un rol (@Rol)
+  const mentionedRole = messageMentions?.roles?.first();
+  if (mentionedRole) return { status: 'found', role: mentionedRole };
+
+  const lowerText = text.toLowerCase();
+  const roles = guild.roles.cache.filter(r => r.id !== guild.roles.everyone.id && !r.managed);
+
+  // 2. Buscar si algún nombre de rol existente en el servidor se encuentra en el texto
+  for (const [id, role] of roles) {
+    const roleName = role.name.toLowerCase();
+    const singularName = roleName.endsWith('s') ? roleName.slice(0, -1) : roleName;
+    const pluralName = roleName.endsWith('s') ? roleName : roleName + 's';
+
+    // Omitir nombres genéricos que ya forman parte de la regla estándar (Admins/Mods/Bots)
+    const genericNames = ['administrador', 'administradores', 'admin', 'admins', 'moderador', 'moderadores', 'mod', 'mods', 'bot', 'bots'];
+    if (genericNames.includes(roleName)) continue;
+
+    if (lowerText.includes(roleName) || (singularName.length > 2 && lowerText.includes(singularName)) || lowerText.includes(pluralName)) {
+      return { status: 'found', role: role };
+    }
+  }
+
+  // 3. Comprobar si el usuario nombró explícitamente un rol que NO existe en el servidor
+  const roleKeywordsMatch = text.match(/(?:rol|rol de|para el rol|solo para el rol|solo para los|para los)\s+([a-zA-Z0-9_áéíóúÁÉÍÓÚñÑ]+)/i);
+  if (roleKeywordsMatch) {
+    const potentialRoleName = roleKeywordsMatch[1].trim();
+    const commonWords = ['que', 'los', 'el', 'un', 'una', 'este', 'chat', 'canal', 'administradores', 'moderadores', 'bots', 'todos', 'miembros'];
+    if (!commonWords.includes(potentialRoleName.toLowerCase())) {
+      return { status: 'not_found', requestedRoleName: potentialRoleName };
+    }
+  }
+
+  return { status: 'no_role', role: null };
+}
+
 async function toggleChannelRestriction(channel, guild, targetRole = null, forceUnlock = false) {
   const everyoneRole = guild.roles.everyone;
   const currentEveryoneOverride = channel.permissionOverwrites.cache.get(everyoneRole.id);
@@ -47,11 +83,12 @@ async function toggleChannelRestriction(channel, guild, targetRole = null, force
   return {
     restricted: true,
     message: targetRole 
-      ? `🔒 **Canal Restringido:** Ahora este canal es exclusivo para el rol ${targetRole} (además de Administradores y Bots).`
-      : '🔒 **Canal Restringido:** El canal ha sido bloqueado por completo. Solo Administradores y Bots pueden escribir aquí.'
+      ? `🔒 **Canal Restringido:** Ahora este canal es exclusivo para el rol **${targetRole.name}** (${targetRole}) (además de Administradores y Bots). Ningún otro rol puede escribir.`
+      : '🔒 **Canal Restringido:** El canal ha sido bloqueado por completo. Solo Administradores, Moderadores y Bots pueden escribir aquí.'
   };
 }
 
 module.exports = {
   toggleChannelRestriction,
+  findRoleInGuild,
 };
