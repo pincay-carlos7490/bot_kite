@@ -45,6 +45,8 @@ module.exports = {
           return await message.reply('❌ No tienes permiso de **Gestionar Canales** para ejecutar esta acción.');
         }
 
+        await message.channel.sendTyping();
+
         const targetRole = message.mentions.roles.first() || null;
         const forceUnlock = content.includes('desbloquea') || content.includes('quita') || content.includes('remueve') || content.includes('desrestringe');
 
@@ -75,7 +77,13 @@ module.exports = {
         const amount = Math.min(Math.max(parsed?.amount || 5, 1), 100);
 
         try {
+          // filterOld = true evita errores si hay mensajes de más de 14 días
           const deleted = await message.channel.bulkDelete(amount + 1, true);
+          
+          if (deleted.size <= 1) {
+            return await message.reply('⚠️ No se pudieron borrar los mensajes porque son más antiguos de 14 días (Discord impide el borrado masivo de mensajes antiguos).');
+          }
+
           const confirmMsg = await message.channel.send({
             content: `🧹 **${deleted.size - 1} mensajes** eliminados correctamente por orden de ${message.author}.`
           });
@@ -83,7 +91,7 @@ module.exports = {
           return;
         } catch (err) {
           console.error('Error borrando mensajes por orden de IA:', err);
-          return await message.reply('❌ Ocurrió un error al intentar borrar los mensajes.');
+          return await message.reply('❌ No se pudieron borrar los mensajes en masa. Recuerda que Discord no permite eliminar en lote mensajes de más de 14 días de antigüedad.');
         }
       }
 

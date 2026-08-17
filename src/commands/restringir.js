@@ -23,6 +23,9 @@ module.exports = {
       });
     }
 
+    // Diferir la respuesta inmediatamente para evitar el error "La aplicación no ha respondido"
+    await interaction.deferReply();
+
     const targetRole = interaction.options.getRole('rol');
 
     try {
@@ -35,12 +38,11 @@ module.exports = {
         .addFields({ name: '🛡️ Ejecutado por', value: `${interaction.user}` })
         .setTimestamp();
 
-      await interaction.reply({ embeds: [embed] });
+      await interaction.editReply({ embeds: [embed] });
     } catch (error) {
       console.error('Error en /restringir:', error);
-      await interaction.reply({
-        content: '❌ Ocurrió un error al intentar modificar los permisos del canal.',
-        ephemeral: true
+      await interaction.editReply({
+        content: '❌ Ocurrió un error al intentar modificar los permisos del canal.'
       });
     }
   },
