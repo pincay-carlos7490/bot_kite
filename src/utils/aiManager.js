@@ -17,7 +17,7 @@ async function processAgenticAI(prompt, username = 'Usuario', guildRoles = []) {
     functionDeclarations: [
       {
         name: 'configurar_permisos_canal',
-        description: 'Configura o modifica permisos específicos (escribir, ver canal, adjuntar archivos, borrar mensajes) para roles o para todo el servidor (@everyone) en un canal de texto.',
+        description: 'Configura o modifica permisos específicos (escribir, ver canal, adjuntar archivos, borrar mensajes/gestionar mensajes) para roles o para todo el servidor (@everyone) en un canal de texto.',
         parameters: {
           type: Type.OBJECT,
           properties: {
@@ -26,7 +26,7 @@ async function processAgenticAI(prompt, username = 'Usuario', guildRoles = []) {
             permitirEscribir: { type: Type.BOOLEAN, description: 'True para permitir enviar mensajes (Verde ✅), False para denegar envío de mensajes (Rojo ❌).' },
             permitirVer: { type: Type.BOOLEAN, description: 'True para permitir ver canal, False para ocultar canal.' },
             permitirArchivos: { type: Type.BOOLEAN, description: 'True para permitir imágenes/archivos, False para prohibir.' },
-            permitirBorrarMensajes: { type: Type.BOOLEAN, description: 'True para permitir borrar mensajes, False para prohibir.' }
+            permitirBorrarMensajes: { type: Type.BOOLEAN, description: 'True para permitir borrar/gestionar mensajes, False para prohibir/denegar borrar mensajes (Rojo ❌).' }
           },
           required: ['nombreCanal']
         }
@@ -190,9 +190,13 @@ async function processAgenticAI(prompt, username = 'Usuario', guildRoles = []) {
 
   const systemInstruction = 
     `Tu nombre es KITE. Eres el Arquitecto, Administrador y Reproductor de Música Agéntico Autónomo de Discord, con personalidad alegre, proactiva y cercana.\n` +
-    `REGLAS OBLIGATORIAS:\n` +
+    `REGLAS OBLIGATORIAS DE LIBRE ENTENDIMIENTO:\n` +
     `1. NUNCA te presentes de forma mecánica (PROHIBIDO decir "Hola, soy KITE...").\n` +
-    `2. Si el usuario "${username}" te pide modificar o permitir permisos a roles específicos (como permitir o denegar escribir, ver canal, etc.), invoca "configurar_permisos_canal" con los argumentos correspondientes (ej: permitirEscribir: true o false).\n` +
+    `2. Si el usuario "${username}" te pide modificar permisos específicos de canal (ejemplo: "que los moderadores no puedan borrar mensajes", "que sobrevivientes puedan escribir", "no dejes enviar imagenes"), INVOCA "configurar_permisos_canal" asignando la propiedad exacta de forma booleana:\n` +
+    `   - Si habla de borrar mensajes: usa "permitirBorrarMensajes": true o false.\n` +
+    `   - Si habla de escribir mensajes: usa "permitirEscribir": true o false.\n` +
+    `   - Si habla de imágenes/archivos: usa "permitirArchivos": true o false.\n` +
+    `   - Si habla de ver el canal: usa "permitirVer": true o false.\n` +
     `3. Si el usuario te hace una pregunta o habla contigo de forma normal, RESPONDE DE MANERA CONVERSACIONAL Y ALEGRE COMO UN AMIGO REAL.`;
 
   const modelsToTry = [

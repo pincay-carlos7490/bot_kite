@@ -122,35 +122,58 @@ module.exports = {
               }
 
               if (rolesToModify.length === 0) {
-                rolesToModify.push(message.guild.roles.everyone);
                 for (const [id, role] of message.guild.roles.cache) {
                   const rName = role.name.toLowerCase();
-                  if (rName.includes('sobreviviente') || rName.includes('miembro')) {
+                  if (rName.includes('sobreviviente') || rName.includes('miembro') || rName.includes('mod')) {
                     rolesToModify.push(role);
                   }
                 }
+                if (rolesToModify.length === 0) rolesToModify.push(message.guild.roles.everyone);
               }
 
-              const allowWriting = args.permitirEscribir !== false;
+              // Construcción dinámica de flags de permisos
+              const overwritesObj = {};
+              const summaryLines = [];
+
+              if (typeof args.permitirBorrarMensajes === 'boolean') {
+                overwritesObj.ManageMessages = args.permitirBorrarMensajes;
+                summaryLines.push(`• 🗑️ **Borrar / Gestionar Mensajes:** ${args.permitirBorrarMensajes ? 'PERMITIDO (Verde ✅)' : 'PROHIBIDO (Rojo ❌)'}`);
+              }
+
+              if (typeof args.permitirEscribir === 'boolean') {
+                overwritesObj.SendMessages = args.permitirEscribir;
+                summaryLines.push(`• 📝 **Enviar Mensajes:** ${args.permitirEscribir ? 'PERMITIDO (Verde ✅)' : 'PROHIBIDO (Rojo ❌)'}`);
+              }
+
+              if (typeof args.permitirVer === 'boolean') {
+                overwritesObj.ViewChannel = args.permitirVer;
+                overwritesObj.ReadMessageHistory = args.permitirVer;
+                summaryLines.push(`• 👁️ **Ver Canal:** ${args.permitirVer ? 'PERMITIDO (Verde ✅)' : 'OCULTO (Rojo ❌)'}`);
+              }
+
+              if (typeof args.permitirArchivos === 'boolean') {
+                overwritesObj.AttachFiles = args.permitirArchivos;
+                overwritesObj.EmbedLinks = args.permitirArchivos;
+                summaryLines.push(`• 🖼️ **Adjuntar Archivos:** ${args.permitirArchivos ? 'PERMITIDO (Verde ✅)' : 'PROHIBIDO (Rojo ❌)'}`);
+              }
+
+              if (Object.keys(overwritesObj).length === 0) {
+                overwritesObj.SendMessages = true;
+                summaryLines.push('• 📝 **Enviar Mensajes:** PERMITIDO (Verde ✅)');
+              }
 
               for (const role of rolesToModify) {
-                await targetChan.permissionOverwrites.edit(role.id, {
-                  SendMessages: allowWriting,
-                  ViewChannel: true,
-                  ReadMessageHistory: true,
-                  ...(typeof args.permitirArchivos === 'boolean' ? { AttachFiles: args.permitirArchivos } : {})
-                });
+                await targetChan.permissionOverwrites.edit(role.id, overwritesObj);
               }
 
-              const statusText = allowWriting ? 'PERMITIDO escribir (Verde ✅)' : 'PROHIBIDO escribir (Rojo ❌)';
               const modifiedNames = rolesToModify.map(r => r.name).join(', ');
 
               const embed = new EmbedBuilder()
-                .setColor(allowWriting ? '#57F287' : '#ED4245')
+                .setColor(summaryLines.some(l => l.includes('PROHIBIDO') || l.includes('OCULTO')) ? '#ED4245' : '#57F287')
                 .setTitle('⚙️ Permisos de Canal Actualizados por IA')
                 .setDescription(`Se han actualizado los permisos en el canal **${targetChan}**:\n\n` +
                   `• 🎭 **Roles Modificados:** ${modifiedNames}\n` +
-                  `• 📝 **Permiso de Escritura:** ${statusText}`)
+                  summaryLines.join('\n'))
                 .addFields({ name: '🛡️ Configurado por', value: `${message.author}` })
                 .setTimestamp();
 
