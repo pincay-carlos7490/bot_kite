@@ -16,6 +16,67 @@ async function processAgenticAI(prompt, username = 'Usuario', guildRoles = []) {
   const tools = [{
     functionDeclarations: [
       {
+        name: 'gestionar_rol_usuario',
+        description: 'Asigna o quita roles a un usuario específico del servidor.',
+        parameters: {
+          type: Type.OBJECT,
+          properties: {
+            nombreRolAgregar: { type: Type.STRING, description: 'Nombre del rol que se desea asignar/dar al usuario.' },
+            nombreRolQuitar: { type: Type.STRING, description: 'Nombre del rol que se desea quitar/remover al usuario.' }
+          }
+        }
+      },
+      {
+        name: 'crear_eliminar_rol',
+        description: 'Crea un nuevo rol en el servidor o elimina un rol existente.',
+        parameters: {
+          type: Type.OBJECT,
+          properties: {
+            accion: { type: Type.STRING, description: '"crear" o "eliminar"' },
+            nombreRol: { type: Type.STRING, description: 'Nombre del rol.' },
+            color: { type: Type.STRING, description: 'Color del rol (ej: "azul", "rojo", "dorado", "#FF5733").' }
+          },
+          required: ['accion', 'nombreRol']
+        }
+      },
+      {
+        name: 'autorol_bienvenida',
+        description: 'Establece o desactiva el rol que se le asignará automáticamente a todo usuario nuevo que ingrese al servidor.',
+        parameters: {
+          type: Type.OBJECT,
+          properties: {
+            nombreRol: { type: Type.STRING, description: 'Nombre del rol para los nuevos usuarios (o "desactivar" para quitar el autorol).' }
+          },
+          required: ['nombreRol']
+        }
+      },
+      {
+        name: 'crear_editar_canal',
+        description: 'Crea un nuevo canal de texto o voz, edita el tema/nombre de un canal o elimina un canal.',
+        parameters: {
+          type: Type.OBJECT,
+          properties: {
+            accion: { type: Type.STRING, description: '"crear", "editar" o "eliminar"' },
+            nombreCanal: { type: Type.STRING, description: 'Nombre del canal.' },
+            tipoCanal: { type: Type.STRING, description: '"texto" o "voz"' },
+            topic: { type: Type.STRING, description: 'Tema o descripción del canal.' }
+          },
+          required: ['accion', 'nombreCanal']
+        }
+      },
+      {
+        name: 'auditar_servidor',
+        description: 'Informa sobre los miembros que tienen un rol, la lista de roles o información del servidor.',
+        parameters: {
+          type: Type.OBJECT,
+          properties: {
+            consulta: { type: Type.STRING, description: '"roles", "miembros_rol" o "stats"' },
+            nombreRol: { type: Type.STRING, description: 'Nombre del rol a auditar.' }
+          },
+          required: ['consulta']
+        }
+      },
+      {
         name: 'restringir_canal',
         description: 'Restringe, bloquea, cierra o hace exclusivo el canal para un rol específico o para administradores.',
         parameters: {
@@ -73,13 +134,13 @@ async function processAgenticAI(prompt, username = 'Usuario', guildRoles = []) {
   }];
 
   const systemInstruction = 
-    `Tu nombre es KITE. Eres un bot agéntico verdaderamente inteligente para Discord con personalidad alegre, cercana y respetuosa.\n` +
+    `Tu nombre es KITE. Eres el Administrador Agéntico Autónomo de Discord, con personalidad alegre, proactiva y cercana.\n` +
     `REGLAS OBLIGATORIAS:\n` +
     `1. NUNCA te presentes de forma mecánica (PROHIBIDO decir "Hola, soy KITE...").\n` +
-    `2. Si el usuario "${username}" te pide ejecutar una acción (bloquear canal, desbloquear canal, modo pausado/lento, borrar mensajes, banear o desbanear), EJECUTA LA FUNCIÓN CORRESPONDIENTE sin rodeos.\n` +
+    `2. Si el usuario "${username}" te pide realizar una acción de administración (crear/editar/borrar roles, asignar/quitar roles a usuarios, configurar autorol de bienvenida, crear/editar canales, auditar servidor, bloquear/desbloquear canal, modo pausado, borrar mensajes, banear/desbanear), EJECUTA LA FUNCIÓN CORRESPONDIENTE sin rodeos.\n` +
     `3. Si el usuario te hace una pregunta o habla contigo de forma normal (por ejemplo "estas ahi?", "hola", "como estas?"), RESPONDE DE MANERA CONVERSACIONAL Y ALEGRE COMO UN AMIGO REAL.`;
 
-  // Pool de Modelos con Conmutación Automática por 503 (Alta Demanda) o 429 (Cuota)
+  // Bucle de Conmutación Automática por 503 (Alta Demanda) o 429 (Cuota)
   const modelsToTry = [
     'gemini-flash-latest',
     'gemini-2.5-flash-lite',
@@ -133,7 +194,7 @@ async function processAgenticAI(prompt, username = 'Usuario', guildRoles = []) {
     return { type: 'tool', functionCall: { name: 'desbanear_usuario', args: { razon: semantic.reason } } };
   }
 
-  return { type: 'chat', text: `¡Hola ${username}! 😊 Estoy totalmente aquí y listo para lo que necesites.` };
+  return { type: 'chat', text: `¡Hola ${username}! 😊 Estoy totalmente aquí y listo para administrar lo que necesites.` };
 }
 
 async function askAI(prompt, username = 'Usuario') {
