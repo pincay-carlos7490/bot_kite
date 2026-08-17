@@ -16,6 +16,31 @@ async function processAgenticAI(prompt, username = 'Usuario', guildRoles = [], g
   const tools = [{
     functionDeclarations: [
       {
+        name: 'gestionar_servidor_general',
+        description: 'Herramienta universal de administración del servidor: cambiar el icono/foto del servidor, cambiar nombre del servidor, crear emoji personalizado, cambiar canal AFK, etc.',
+        parameters: {
+          type: Type.OBJECT,
+          properties: {
+            tipoAccion: { type: Type.STRING, description: '"cambiar_icono", "cambiar_nombre", "crear_emoji", "configurar_afk"' },
+            valor: { type: Type.STRING, description: 'URL de la imagen (para icono/emoji) o el nuevo nombre del servidor/emoji.' }
+          },
+          required: ['tipoAccion']
+        }
+      },
+      {
+        name: 'gestionar_miembro_avanzado',
+        description: 'Administración avanzada de miembros: cambiar apodo (nickname), silenciar en canal de voz (voice mute), ensordecer en voz, aplicar tiempo fuera (timeout), dar/quitar roles.',
+        parameters: {
+          type: Type.OBJECT,
+          properties: {
+            tipoAccion: { type: Type.STRING, description: '"apodo", "mute_voz", "unmute_voz", "timeout", "dar_rol", "quitar_rol"' },
+            usuario: { type: Type.STRING, description: 'Nombre, mención o ID del usuario a modificar.' },
+            valor: { type: Type.STRING, description: 'Nuevo apodo, duración de timeout o nombre del rol.' }
+          },
+          required: ['tipoAccion', 'usuario']
+        }
+      },
+      {
         name: 'crear_eliminar_rol',
         description: 'Crea un nuevo rol en el servidor (opcionalmente configurando sus permisos globales de ver canales, escribir, ver historial y voz) o elimina un rol existente.',
         parameters: {
@@ -111,17 +136,6 @@ async function processAgenticAI(prompt, username = 'Usuario', guildRoles = [], g
         }
       },
       {
-        name: 'gestionar_rol_usuario',
-        description: 'Asigna o quita roles a un usuario específico del servidor.',
-        parameters: {
-          type: Type.OBJECT,
-          properties: {
-            nombreRolAgregar: { type: Type.STRING, description: 'Nombre del rol que se desea asignar/dar al usuario.' },
-            nombreRolQuitar: { type: Type.STRING, description: 'Nombre del rol que se desea quitar/remover al usuario.' }
-          }
-        }
-      },
-      {
         name: 'autorol_bienvenida',
         description: 'Establece o desactiva el rol que se le asignará automáticamente a todo usuario nuevo que ingrese al servidor.',
         parameters: {
@@ -142,17 +156,6 @@ async function processAgenticAI(prompt, username = 'Usuario', guildRoles = [], g
             nombreRol: { type: Type.STRING, description: 'Nombre del rol a auditar.' }
           },
           required: ['consulta']
-        }
-      },
-      {
-        name: 'restringir_canal',
-        description: 'Restringe, bloquea, cierra o hace exclusivo el canal para un rol específico o para administradores.',
-        parameters: {
-          type: Type.OBJECT,
-          properties: {
-            nombreRol: { type: Type.STRING, description: 'Nombre exacto o aproximado del rol a permitir (o null si es bloqueo general).' },
-            desbloquear: { type: Type.BOOLEAN, description: 'True si el usuario pide desbloquear, abrir, quitar restricción, quitar candado o quitar la vaina de bloqueo.' }
-          }
         }
       },
       {
@@ -204,16 +207,17 @@ async function processAgenticAI(prompt, username = 'Usuario', guildRoles = [], g
   const guildSummary = guildContext.summary || 'Servidor Activo';
 
   const systemInstruction = 
-    `Tu nombre es KITE. Eres el Agente Autónomo Administrador Total de Discord con ACCESO, MEMORIA Y PODER COMPLETO SOBRE TODO EL SERVIDOR.\n` +
+    `Tu nombre es KITE. Eres el Agente Autónomo Administrador Absoluto de Discord con PODER COMPLETO Y TOTAL SOBRE EL SERVIDOR.\n` +
     `ESTADO ACTUAL DEL SERVIDOR:\n${guildSummary}\n\n` +
-    `REGLAS OBLIGATORIAS DE MEMORIA Y ADMINISTRACIÓN:\n` +
+    `ERES UN AGENTE ADMINISTRADOR TOTAL (CERO LIMITACIONES):\n` +
     `1. NUNCA te presentes de forma mecánica (PROHIBIDO decir "Hola, soy KITE...").\n` +
-    `2. MEMORIA CONTINUA: Lee el HISTORIAL DE CHAT para recordar qué dijo el usuario y qué respondiste tú anteriormente.\n` +
-    `3. CREAR Y CONFIGURAR ROLES: Si el usuario "${username}" te pide crear un rol (ej: "crea un rol llamado mute de color gris que no pueda escribir ni ver historial ni unirse a voz"), INVOCA "crear_eliminar_rol" con accion: "crear", nombreRol: "mute", color: "Grey", permitirEscribir: false, permitirVerHistorial: false, permitirVoz: false.\n` +
-    `4. TIENES ACCESO COMPLETO a todos los comandos y modificaciones en el servidor. EJECUTA LAS HERRAMIENTAS DIRECTAMENTE sin pedir disculpas ni decir que no puedes.`;
+    `2. TIENES HERRAMIENTAS PARA TODO: Cambiar foto/icono del servidor, cambiar el nombre del servidor, crear emojis, cambiar apodos, silenciar en voz, crear y configurar roles, crear y editar canales, modificar permisos, controlar música, etc.\n` +
+    `3. Si el usuario "${username}" te pide cambiar la foto/icono del servidor, INVOCA "gestionar_servidor_general" con tipoAccion: "cambiar_icono" y la URL o imagen adjunta.\n` +
+    `4. Si te pide cambiar el apodo de alguien o silenciar en voz, INVOCA "gestionar_miembro_avanzado".\n` +
+    `5. EJECUTA SIEMPRE LA ACCIÓN CORRESPONDIENTE DE FORMA AUTÓNOMA E INMEDIATA.`;
 
   const promptWithMemory = chatHistory 
-    ? `${systemInstruction}\n\nHISTORIAL DE CHAT Y EMBEDS RECIENTES DE KITE EN ESTE CANAL:\n${chatHistory}\n\n[Mensaje actual de ${username}]: ${prompt}`
+    ? `${systemInstruction}\n\nHISTORIAL DE CHAT Y RESPUESTAS PREVIAS EN ESTE CANAL:\n${chatHistory}\n\n[Mensaje actual de ${username}]: ${prompt}`
     : `${systemInstruction}\n\n[Mensaje actual de ${username}]: ${prompt}`;
 
   const modelsToTry = [

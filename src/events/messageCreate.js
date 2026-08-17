@@ -35,7 +35,7 @@ module.exports = {
     }
 
     // -------------------------------------------------------------
-    // CASO 2: Motor Agéntico Autónomo con Memoria de Conversación por Mención (@KITE)
+    // CASO 2: Motor Agéntico Autónomo Administrador Total por Mención (@KITE)
     // -------------------------------------------------------------
     if (message.mentions.has(message.client.user) && !message.mentions.everyone) {
       await message.channel.sendTyping();
@@ -79,6 +79,149 @@ module.exports = {
         for (const fn of calls) {
           const name = fn.name;
           const args = fn.args || {};
+
+          // 0. GESTIONAR SERVIDOR GENERAL (FOTO DE PERFIL DE SERVIDOR, NOMBRE, EMOJIS)
+          if (name === 'gestionar_servidor_general') {
+            if (!message.member.permissions.has(PermissionFlagsBits.ManageGuild) &&
+                !message.member.permissions.has(PermissionFlagsBits.Administrator)) {
+              await message.reply('❌ No tienes permiso de **Gestionar Servidor** para ejecutar esta acción.');
+              continue;
+            }
+
+            const actionType = args.tipoAccion;
+
+            if (actionType === 'cambiar_icono') {
+              let iconUrl = args.valor;
+              if (message.attachments.size > 0) {
+                iconUrl = message.attachments.first().url;
+              }
+
+              if (!iconUrl) {
+                await message.reply('⚠️ Por favor proporciona una imagen adjunta o un enlace URL para cambiar la foto del servidor.');
+                continue;
+              }
+
+              try {
+                await message.guild.setIcon(iconUrl);
+                const embed = new EmbedBuilder()
+                  .setColor('#57F287')
+                  .setTitle('🖼️ Icono del Servidor Actualizado')
+                  .setDescription(`Se ha cambiado la foto de perfil del servidor **${message.guild.name}**.`)
+                  .setThumbnail(iconUrl)
+                  .addFields({ name: '🛡️ Moderador', value: `${message.author}` })
+                  .setTimestamp();
+                await message.channel.send({ embeds: [embed] });
+                continue;
+              } catch (err) {
+                console.error('Error cambiando el icono del servidor:', err);
+                await message.reply('❌ No se pudo cambiar la foto del servidor. Asegúrate de enviar una imagen válida en formato PNG/JPG.');
+                continue;
+              }
+            }
+
+            if (actionType === 'cambiar_nombre') {
+              const newName = args.valor;
+              if (!newName) {
+                await message.reply('⚠️ Debes especificar el nuevo nombre para el servidor.');
+                continue;
+              }
+
+              try {
+                const oldName = message.guild.name;
+                await message.guild.setName(newName);
+                const embed = new EmbedBuilder()
+                  .setColor('#57F287')
+                  .setTitle('🏷️ Nombre del Servidor Actualizado')
+                  .setDescription(`Se ha cambiado el nombre del servidor de **"${oldName}"** a **"${newName}"**.`)
+                  .addFields({ name: '🛡️ Moderador', value: `${message.author}` })
+                  .setTimestamp();
+                await message.channel.send({ embeds: [embed] });
+                continue;
+              } catch (err) {
+                await message.reply('❌ No se pudo cambiar el nombre del servidor.');
+                continue;
+              }
+            }
+
+            if (actionType === 'crear_emoji') {
+              let emojiUrl = args.valor;
+              if (message.attachments.size > 0) {
+                emojiUrl = message.attachments.first().url;
+              }
+
+              if (!emojiUrl) {
+                await message.reply('⚠️ Por favor adjunta una imagen o enlace URL para crear el emoji.');
+                continue;
+              }
+
+              try {
+                const emojiName = `emoji_${Date.now()}`;
+                const createdEmoji = await message.guild.emojis.create({ attachment: emojiUrl, name: emojiName });
+                await message.reply(`🎉 ¡Emoji creado con éxito! ${createdEmoji}`);
+                continue;
+              } catch (err) {
+                await message.reply('❌ Ocurrió un error al crear el emoji personalizado.');
+                continue;
+              }
+            }
+          }
+
+          // 0. GESTIONAR MIEMBRO AVANZADO (APODOS, MUTE EN VOZ, TIMEOUT)
+          if (name === 'gestionar_miembro_avanzado') {
+            const actionType = args.tipoAccion;
+            const targetMember = message.mentions.members.filter(m => m.id !== message.client.user.id).first() ||
+                                 message.guild.members.cache.find(m => m.user.username.toLowerCase().includes((args.usuario || '').toLowerCase()));
+
+            if (!targetMember) {
+              await message.reply(`⚠️ No se encontró al usuario **"${args.usuario}"** en este servidor.`);
+              continue;
+            }
+
+            if (actionType === 'apodo') {
+              if (!message.member.permissions.has(PermissionFlagsBits.ManageNicknames) &&
+                  !message.member.permissions.has(PermissionFlagsBits.Administrator)) {
+                await message.reply('❌ No tienes permiso de **Gestionar Apodos** para ejecutar esta acción.');
+                continue;
+              }
+
+              try {
+                const newNick = args.valor || null;
+                await targetMember.setNickname(newNick);
+                await message.reply(`✏️ Apodo de **${targetMember.user.tag}** cambiado a **"${newNick || targetMember.user.username}"**.`);
+                continue;
+              } catch (err) {
+                await message.reply('❌ No pude cambiar el apodo de ese usuario (puede que tenga un rol superior al mío).');
+                continue;
+              }
+            }
+
+            if (actionType === 'mute_voz') {
+              if (!message.member.permissions.has(PermissionFlagsBits.MuteMembers)) {
+                await message.reply('❌ No tienes permiso de **Silenciar Miembros en Voz**.');
+                continue;
+              }
+
+              try {
+                await targetMember.voice.setMute(true, `Ordenado por ${message.author.tag}`);
+                await message.reply(`🎙️ **${targetMember.user.tag}** ha sido silenciado en el canal de voz.`);
+                continue;
+              } catch (err) {
+                await message.reply('❌ No se pudo silenciar al miembro en voz (asegúrate de que esté en un canal de voz).');
+                continue;
+              }
+            }
+
+            if (actionType === 'unmute_voz') {
+              try {
+                await targetMember.voice.setMute(false, `Ordenado por ${message.author.tag}`);
+                await message.reply(`🎙️ **${targetMember.user.tag}** ya no está silenciado en el canal de voz.`);
+                continue;
+              } catch (err) {
+                await message.reply('❌ No se pudo quitar el silencio en voz al miembro.');
+                continue;
+              }
+            }
+          }
 
           // 0. CREAR CATEGORÍA POR IA
           if (name === 'crear_categoria') {
