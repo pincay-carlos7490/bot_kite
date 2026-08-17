@@ -79,29 +79,40 @@ async function processAgenticAI(prompt, username = 'Usuario', guildRoles = []) {
     `2. Si el usuario "${username}" te pide ejecutar una acción (bloquear canal, desbloquear canal, modo pausado/lento, borrar mensajes, banear o desbanear), EJECUTA LA FUNCIÓN CORRESPONDIENTE sin rodeos.\n` +
     `3. Si el usuario te hace una pregunta o habla contigo de forma normal (por ejemplo "estas ahi?", "hola", "como estas?"), RESPONDE DE MANERA CONVERSACIONAL Y ALEGRE COMO UN AMIGO REAL.`;
 
-  // 1. Usar exclusivamente el modelo Ilimitado gemini-flash-latest
+  // Pool de Modelos con Conmutación Automática por 503 (Alta Demanda) o 429 (Cuota)
+  const modelsToTry = [
+    'gemini-flash-latest',
+    'gemini-2.5-flash-lite',
+    'gemini-3.5-flash',
+    'gemini-3.6-flash',
+    'gemini-flash-lite-latest'
+  ];
+
   if (apiKey) {
-    try {
-      const ai = new GoogleGenAI({ apiKey: apiKey });
-      const response = await ai.models.generateContent({
-        model: 'gemini-flash-latest',
-        contents: `${systemInstruction}\n\n[Mensaje de ${username}]: ${prompt}`,
-        config: { tools: tools }
-      });
+    const ai = new GoogleGenAI({ apiKey: apiKey });
 
-      if (response && response.functionCalls && response.functionCalls.length > 0) {
-        return { type: 'tool', functionCall: response.functionCalls[0] };
-      }
+    for (const modelName of modelsToTry) {
+      try {
+        const response = await ai.models.generateContent({
+          model: modelName,
+          contents: `${systemInstruction}\n\n[Mensaje de ${username}]: ${prompt}`,
+          config: { tools: tools }
+        });
 
-      if (response && response.text) {
-        return { type: 'chat', text: response.text };
+        if (response && response.functionCalls && response.functionCalls.length > 0) {
+          return { type: 'tool', functionCall: response.functionCalls[0] };
+        }
+
+        if (response && response.text) {
+          return { type: 'chat', text: response.text };
+        }
+      } catch (err) {
+        console.log(`Modelo ${modelName} en alta demanda o límite (Error: ${err.message.substring(0, 60)}...), pasando al siguiente modelo del pool...`);
       }
-    } catch (err) {
-      console.error('Error con Gemini Flash Latest:', err.message);
     }
   }
 
-  // 2. Escudo de Respaldo Semántico en caso extremo de fallo de red
+  // Escudo de Respaldo Semántico en caso extremo de fallo de red en todos los modelos
   const semantic = parseSemanticIntent(prompt, guildRoles);
   if (semantic.intent === 'SLOWMODE') {
     return { type: 'tool', functionCall: { name: 'modo_pausado', args: { segundos: semantic.seconds } } };
@@ -122,7 +133,7 @@ async function processAgenticAI(prompt, username = 'Usuario', guildRoles = []) {
     return { type: 'tool', functionCall: { name: 'desbanear_usuario', args: { razon: semantic.reason } } };
   }
 
-  return { type: 'chat', text: `¡Hola ${username}! 😊 Estoy genial, listo para lo que necesites hoy.` };
+  return { type: 'chat', text: `¡Hola ${username}! 😊 Estoy totalmente aquí y listo para lo que necesites.` };
 }
 
 async function askAI(prompt, username = 'Usuario') {

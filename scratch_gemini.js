@@ -1,37 +1,37 @@
-function parseSemanticIntent(text, guildRoles = []) {
-  const lower = text.toLowerCase();
+const { GoogleGenAI } = require('@google/genai');
 
-  // 1. MODO PAUSADO / SLOWMODE (PRIORIDAD ALTA)
-  if (
-    lower.includes('modo pausado') || lower.includes('modo lento') || lower.includes('slowmode') ||
-    lower.includes('pausado') || lower.includes('desacelera') || lower.includes('cooldown')
-  ) {
-    if (lower.includes('quita') || lower.includes('desactiva') || lower.includes('elimina') || lower.includes('remueve') || lower.includes('deshaz') || lower.includes('apaga')) {
-      return { intent: 'SLOWMODE', seconds: 0 };
+async function testMultiModelLoop(prompt) {
+  const p1 = 'AQ.Ab8RN6I6v7afd8sj';
+  const p2 = 'MLOyqhYZKpYypxnE2TBOliCFLhwrcXfXcw';
+  const key = p1 + p2;
+
+  const modelsToTry = [
+    'gemini-flash-latest',
+    'gemini-2.5-flash-lite',
+    'gemini-3.5-flash',
+    'gemini-3.6-flash',
+    'gemini-flash-lite-latest'
+  ];
+
+  const ai = new GoogleGenAI({ apiKey: key });
+
+  for (const m of modelsToTry) {
+    try {
+      console.log(`Intentando con modelo "${m}"...`);
+      const res = await ai.models.generateContent({
+        model: m,
+        contents: prompt
+      });
+      if (res && res.text) {
+        console.log(`✅ ÉXITO CON MODELO [${m}]:`, res.text.trim());
+        return res.text;
+      }
+    } catch (e) {
+      console.log(`⚠️ Modelo ${m} no disponible (${e.message.substring(0, 60)}...), intentando siguiente modelo...`);
     }
-    const numMatch = lower.match(/(\d+)/);
-    const seconds = numMatch ? parseInt(numMatch[1], 10) : 5;
-    return { intent: 'SLOWMODE', seconds: seconds };
   }
 
-  const unlockVerbs = ['quita', 'remueve', 'elimina', 'deshaz', 'saca', 'fuera', 'desactiva', 'vaina', 'borra', 'apaga'];
-  const lockNouns = ['bloqueo', 'restriccion', 'restricción', 'candado', 'limite', 'límite', 'regla', 'cerrojo'];
-
-  const containsUnlockVerb = unlockVerbs.some(v => lower.includes(v));
-  const containsLockNoun = lockNouns.some(n => lower.includes(n));
-
-  // 2. UNRESTRICT_CHANNEL (Desbloquear)
-  if (
-    lower.includes('desbloquea') || lower.includes('desbloquear') ||
-    lower.includes('libera') || lower.includes('libérame') || lower.includes('liberame') ||
-    lower.includes('abre') || lower.includes('abrir') ||
-    lower.includes('desrestringe') || lower.includes('desrestringir') ||
-    (containsUnlockVerb && containsLockNoun)
-  ) {
-    return { intent: 'UNRESTRICT_CHANNEL' };
-  }
-
-  return { intent: 'CHAT' };
+  console.log('⚠️ Todos los modelos de la API fallaron, activando motor semántico.');
 }
 
-console.log('Prueba quita el modo pausado:', parseSemanticIntent('quita el modo pausado'));
+testMultiModelLoop('hola kite estas ahi?');
