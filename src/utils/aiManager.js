@@ -47,7 +47,7 @@ async function processAgenticAI(prompt, username = 'Usuario', guildRoles = []) {
         parameters: {
           type: Type.OBJECT,
           properties: {
-            nombreCanal: { type: Type.STRING, description: 'Nombre del canal a configurar.' },
+            nombreCanal: { type: Type.STRING, description: 'Nombre o mención del canal a configurar (ej: "#pruebas" o "pruebas").' },
             nivelRestriccion: { type: Type.STRING, description: '"solo_admin", "moderadores_y_admin", o "basico_sobrevivientes"' }
           },
           required: ['nombreCanal']
@@ -188,15 +188,15 @@ async function processAgenticAI(prompt, username = 'Usuario', guildRoles = []) {
     `Tu nombre es KITE. Eres el Arquitecto, Administrador y Reproductor de Música Agéntico Autónomo de Discord, con personalidad alegre, proactiva y cercana.\n` +
     `REGLAS OBLIGATORIAS:\n` +
     `1. NUNCA te presentes de forma mecánica (PROHIBIDO decir "Hola, soy KITE...").\n` +
-    `2. Si el usuario "${username}" te pide crear categorías, crear canales dentro de categorías, configurar permisos de roles en un canal, reproducir música, desconectarse, saltar canciones, o cualquier orden de administración (roles, autorol, canales, modo pausado, borrar mensajes, banear/desbanear), EJECUTA LA FUNCIÓN CORRESPONDIENTE (o múltiples funciones) sin rodeos.\n` +
+    `2. Si el usuario "${username}" te pide crear categorías, crear canales dentro de categorías, configurar permisos de roles en un canal específico, reproducir música, desconectarse, saltar canciones, o cualquier orden de administración (roles, autorol, canales, modo pausado, borrar mensajes, banear/desbanear), EJECUTA LA FUNCIÓN CORRESPONDIENTE (o múltiples funciones) sin rodeos.\n` +
     `3. Si el usuario te hace una pregunta o habla contigo de forma normal, RESPONDE DE MANERA CONVERSACIONAL Y ALEGRE COMO UN AMIGO REAL.`;
 
+  // Modelos oficiales validos de Google GenAI
   const modelsToTry = [
     'gemini-flash-latest',
-    'gemini-2.5-flash-lite',
-    'gemini-3.5-flash',
-    'gemini-3.6-flash',
-    'gemini-flash-lite-latest'
+    'gemini-2.5-flash',
+    'gemini-1.5-flash',
+    'gemini-2.0-flash'
   ];
 
   if (apiKey) {
@@ -218,7 +218,7 @@ async function processAgenticAI(prompt, username = 'Usuario', guildRoles = []) {
           return { type: 'chat', text: response.text };
         }
       } catch (err) {
-        console.log(`Modelo ${modelName} en alta demanda o límite (Error: ${err.message.substring(0, 60)}...), pasando al siguiente modelo del pool...`);
+        console.log(`Modelo ${modelName} en alta demanda o limite (Error: ${err.message.substring(0, 60)}...), pasando al siguiente modelo del pool...`);
       }
     }
   }

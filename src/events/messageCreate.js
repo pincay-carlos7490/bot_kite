@@ -88,8 +88,18 @@ module.exports = {
               continue;
             }
 
-            const chanName = (args.nombreCanal || '').toLowerCase().replace('#', '');
-            const targetChan = message.guild.channels.cache.find(c => c.name.toLowerCase() === chanName) || message.channel;
+            // Búsqueda inteligente del canal objetivo (mención <#ID>, por ID, por nombre exacto o canal actual)
+            let targetChan = message.mentions.channels.first();
+
+            if (!targetChan && args.nombreCanal) {
+              const cleanStr = args.nombreCanal.replace(/<#|>/g, '').trim().toLowerCase();
+              targetChan = message.guild.channels.cache.get(cleanStr) ||
+                           message.guild.channels.cache.find(c => c.name.toLowerCase() === cleanStr);
+            }
+
+            if (!targetChan) {
+              targetChan = message.channel;
+            }
 
             try {
               // 1. Configurar @everyone (Permisos Mínimos / Sin envío de mensajes)
