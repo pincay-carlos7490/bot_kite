@@ -42,7 +42,15 @@ module.exports = {
 
       const cleanPrompt = message.content.replace(/<@!?\d+>/g, '').trim();
       const rolesList = Array.from(message.guild.roles.cache.values());
-      const agentResult = await processAgenticAI(cleanPrompt, message.author.username, rolesList);
+
+      // Construcción del Mapa de Contexto del Servidor en Tiempo Real
+      const channelsList = message.guild.channels.cache.map(c => `#${c.name}`).slice(0, 30).join(', ');
+      const rolesListNames = message.guild.roles.cache.map(r => `@${r.name}`).slice(0, 30).join(', ');
+      const guildContext = {
+        summary: `Servidor: "${message.guild.name}" | Canales Existentes: [${channelsList}] | Roles Existentes: [${rolesListNames}]`
+      };
+
+      const agentResult = await processAgenticAI(cleanPrompt, message.author.username, rolesList, guildContext);
 
       if ((agentResult.type === 'tools' || agentResult.type === 'tool') && (agentResult.functionCalls || agentResult.functionCall)) {
         const calls = agentResult.functionCalls || [agentResult.functionCall];
