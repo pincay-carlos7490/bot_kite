@@ -237,40 +237,34 @@ async function processAgenticAI(prompt, username = 'Usuario', guildRoles = [], g
     ? `${systemInstruction}\n\nHISTORIAL DE CHAT Y RESPUESTAS PREVIAS EN ESTE CANAL:\n${chatHistory}\n\n[Mensaje actual de ${username}]: ${prompt}`
     : `${systemInstruction}\n\n[Mensaje actual de ${username}]: ${prompt}`;
 
+  // Lista de modelos ampliada para usar cualquier cuota disponible de Google
   const modelsToTry = [
     'gemini-2.5-flash',
-    'gemini-flash-latest'
+    'gemini-flash-latest',
+    'gemini-2.0-flash-exp',
+    'gemini-1.5-flash-latest'
   ];
 
   for (const key of apiKeys) {
     const ai = new GoogleGenAI({ apiKey: key });
 
     for (const modelName of modelsToTry) {
-      for (let attempt = 1; attempt <= 2; attempt++) {
-        try {
-          const response = await ai.models.generateContent({
-            model: modelName,
-            contents: promptWithMemory,
-            config: { tools: tools }
-          });
+      try {
+        const response = await ai.models.generateContent({
+          model: modelName,
+          contents: promptWithMemory,
+          config: { tools: tools }
+        });
 
-          if (response && response.functionCalls && response.functionCalls.length > 0) {
-            return { type: 'tools', functionCalls: response.functionCalls };
-          }
-
-          if (response && response.text) {
-            return { type: 'chat', text: response.text };
-          }
-        } catch (err) {
-          const isRateLimit = err.message && (err.message.includes('429') || err.message.includes('quota'));
-          console.log(`Key (${key.substring(0, 8)}...) - Modelo ${modelName} (Intento ${attempt}): ${err.message ? err.message.substring(0, 60) : ''}...`);
-
-          if (isRateLimit && attempt === 1) {
-            await sleep(1000);
-          } else {
-            break;
-          }
+        if (response && response.functionCalls && response.functionCalls.length > 0) {
+          return { type: 'tools', functionCalls: response.functionCalls };
         }
+
+        if (response && response.text) {
+          return { type: 'chat', text: response.text };
+        }
+      } catch (err) {
+        console.log(`Key (${key.substring(0, 6)}...) - Modelo ${modelName}: ${err.message ? err.message.substring(0, 50) : ''}...`);
       }
     }
   }
