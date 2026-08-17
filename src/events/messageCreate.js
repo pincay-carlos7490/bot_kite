@@ -92,61 +92,84 @@ module.exports = {
             const targetChan = message.guild.channels.cache.find(c => c.name.toLowerCase() === chanName) || message.channel;
 
             try {
-              const everyoneRole = message.guild.roles.everyone;
-              const permissions = [];
-
-              // Configurar @everyone y Sobrevivientes con permisos mínimos / de solo lectura
-              permissions.push({
-                id: everyoneRole.id,
-                deny: [PermissionFlagsBits.SendMessages, PermissionFlagsBits.CreatePublicThreads]
+              // 1. Configurar @everyone (Permisos Mínimos / Sin envío de mensajes)
+              await targetChan.permissionOverwrites.edit(message.guild.roles.everyone.id, {
+                ViewChannel: true,
+                ReadMessageHistory: true,
+                SendMessages: false,
+                AttachFiles: false,
+                EmbedLinks: false,
+                AddReactions: true,
+                UseExternalEmojis: false,
+                MentionEveryone: false,
+                CreatePublicThreads: false,
+                CreatePrivateThreads: false,
+                SendMessagesInThreads: false
               });
 
+              // 2. Recorrer todos los roles del servidor y aplicar permisos explícitos (Verde / Rojo)
               for (const [id, role] of message.guild.roles.cache) {
+                if (role.id === message.guild.roles.everyone.id) continue;
                 const rName = role.name.toLowerCase();
 
-                if (rName.includes('sobreviviente') || rName.includes('miembro')) {
-                  permissions.push({
-                    id: role.id,
-                    allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.ReadMessageHistory],
-                    deny: [PermissionFlagsBits.SendMessages, PermissionFlagsBits.AttachFiles, PermissionFlagsBits.MentionEveryone]
+                // SOBREVIVIENTES / MIEMBROS GENERALES -> PERMISOS MÍNIMOS (ROJO EN ENVIAR MENSAJES Y ARCHIVOS)
+                if (rName.includes('sobreviviente') || rName.includes('miembro') || rName.includes('usuario')) {
+                  await targetChan.permissionOverwrites.edit(role.id, {
+                    ViewChannel: true,
+                    ReadMessageHistory: true,
+                    SendMessages: false,
+                    AttachFiles: false,
+                    EmbedLinks: false,
+                    AddReactions: true,
+                    UseExternalEmojis: false,
+                    MentionEveryone: false,
+                    CreatePublicThreads: false,
+                    CreatePrivateThreads: false,
+                    SendMessagesInThreads: false
                   });
-                } else if (rName.includes('mod') || rName.includes('moderador') || rName.includes('moderadores')) {
-                  permissions.push({
-                    id: role.id,
-                    allow: [
-                      PermissionFlagsBits.ViewChannel,
-                      PermissionFlagsBits.SendMessages,
-                      PermissionFlagsBits.ReadMessageHistory,
-                      PermissionFlagsBits.AttachFiles,
-                      PermissionFlagsBits.EmbedLinks
-                    ]
+                }
+                // MODERADORES -> PERMISOS NECESARIOS (VERDE EN ENVIAR MENSAJES, VERDE EN ADJUNTAR ARCHIVOS)
+                else if (rName.includes('mod') || rName.includes('moderador') || rName.includes('moderadores')) {
+                  await targetChan.permissionOverwrites.edit(role.id, {
+                    ViewChannel: true,
+                    ReadMessageHistory: true,
+                    SendMessages: true,
+                    AttachFiles: true,
+                    EmbedLinks: true,
+                    AddReactions: true,
+                    UseExternalEmojis: true,
+                    MentionEveryone: false,
+                    ManageMessages: false,
+                    ManageChannels: false,
+                    ManageRoles: false
                   });
-                } else if (role.permissions.has(PermissionFlagsBits.Administrator) || rName.includes('admin') || rName.includes('bot')) {
-                  permissions.push({
-                    id: role.id,
-                    allow: [
-                      PermissionFlagsBits.ViewChannel,
-                      PermissionFlagsBits.SendMessages,
-                      PermissionFlagsBits.ManageMessages,
-                      PermissionFlagsBits.ManageChannels,
-                      PermissionFlagsBits.ReadMessageHistory,
-                      PermissionFlagsBits.AttachFiles
-                    ]
+                }
+                // ADMINISTRADORES Y BOTS -> PERMISOS TOTALES (VERDE EN TODO)
+                else if (role.permissions.has(PermissionFlagsBits.Administrator) || rName.includes('admin') || rName.includes('bot')) {
+                  await targetChan.permissionOverwrites.edit(role.id, {
+                    ViewChannel: true,
+                    ReadMessageHistory: true,
+                    SendMessages: true,
+                    AttachFiles: true,
+                    EmbedLinks: true,
+                    AddReactions: true,
+                    UseExternalEmojis: true,
+                    MentionEveryone: true,
+                    ManageMessages: true,
+                    ManageChannels: true,
+                    ManageRoles: true,
+                    ManageWebhooks: true
                   });
                 }
               }
 
-              for (const p of permissions) {
-                await targetChan.permissionOverwrites.edit(p.id, p).catch(() => null);
-              }
-
               const embed = new EmbedBuilder()
-                .setColor('#3498DB')
+                .setColor('#57F287')
                 .setTitle('⚙️ Permisos de Canal Configurados por IA')
-                .setDescription(`Se han aplicado las reglas de roles en **${targetChan}**:\n\n` +
-                  `• 🛡️ **Administradores y Bots:** Permisos Totales\n` +
-                  `• ⚔️ **Moderadores:** Permisos Necesarios\n` +
-                  `• 👤 **Sobrevivientes / Todos:** Permisos Mínimos`)
+                .setDescription(`Se han aplicado explícitamente los permisos en el canal **${targetChan}**:\n\n` +
+                  `• 🛡️ **Administradores y Bots:** Todos los Permisos (Verdes ✅)\n` +
+                  `• ⚔️ **Moderadores:** Permisos de Moderación Necesarios (Verdes ✅)\n` +
+                  `• 👤 **Sobrevivientes y @everyone:** Permisos Mínimos (Solo Lectura - Rojos ❌)`)
                 .addFields({ name: '🛡️ Configurado por', value: `${message.author}` })
                 .setTimestamp();
 
