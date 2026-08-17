@@ -12,7 +12,7 @@ module.exports = {
     await connectDatabase();
 
     // 2. Registrar comandos automáticamente en la API de Discord al encender
-    await deployCommands();
+    await deployCommands(client.token, client.user.id);
 
     // 3. Inicializar token gratuito de SoundCloud/YouTube para el reproductor
     await initMusicEngine();

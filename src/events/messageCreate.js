@@ -79,7 +79,33 @@ module.exports = {
           }
         }
 
-        // 2. BORRAR MENSAJES (PURA RAZONAMIENTO DE IA)
+        // 2. MODO PAUSADO (PURA RAZONAMIENTO DE IA)
+        if (name === 'modo_pausado') {
+          if (!message.member.permissions.has(PermissionFlagsBits.ManageChannels) &&
+              !message.member.permissions.has(PermissionFlagsBits.Administrator)) {
+            return await message.reply('❌ No tienes permiso de **Gestionar Canales** para ejecutar esta acción.');
+          }
+
+          const seconds = Math.max(args.segundos || 0, 0);
+
+          try {
+            await message.channel.setRateLimitPerUser(seconds, `Por orden de ${message.author.tag}`);
+            const embed = new EmbedBuilder()
+              .setColor(seconds > 0 ? '#3498DB' : '#57F287')
+              .setTitle(seconds > 0 ? '⏱️ Modo Pausado Activado' : '⏱️ Modo Pausado Desactivado')
+              .setDescription(seconds > 0 
+                ? `El **Modo Pausado** ha sido configurado a **${seconds} segundos** de espera por usuario en este canal.`
+                : 'El **Modo Pausado** ha sido **desactivado**. Los miembros pueden enviar mensajes normalmente.')
+              .addFields({ name: '🛡️ Moderador', value: `${message.author}` })
+              .setTimestamp();
+            return await message.channel.send({ embeds: [embed] });
+          } catch (err) {
+            console.error('Error al cambiar modo pausado por IA:', err);
+            return await message.reply('❌ Ocurrió un error al intentar cambiar el Modo Pausado del canal.');
+          }
+        }
+
+        // 3. BORRAR MENSAJES (PURA RAZONAMIENTO DE IA)
         if (name === 'borrar_mensajes') {
           if (!message.member.permissions.has(PermissionFlagsBits.ManageMessages)) {
             return await message.reply('❌ No tienes permiso de **Gestionar Mensajes** para ejecutar esta acción.');
@@ -117,7 +143,7 @@ module.exports = {
           }
         }
 
-        // 3. BANEAR USUARIO (PURA RAZONAMIENTO DE IA)
+        // 4. BANEAR USUARIO (PURA RAZONAMIENTO DE IA)
         if (name === 'banear_usuario') {
           if (!message.member.permissions.has(PermissionFlagsBits.BanMembers)) {
             return await message.reply('❌ No tienes permiso de **Banear Miembros** para ejecutar esta acción.');
@@ -175,7 +201,7 @@ module.exports = {
           }
         }
 
-        // 4. DESBANEAR USUARIO (PURA RAZONAMIENTO DE IA)
+        // 5. DESBANEAR USUARIO (PURA RAZONAMIENTO DE IA)
         if (name === 'desbanear_usuario') {
           if (!message.member.permissions.has(PermissionFlagsBits.BanMembers)) {
             return await message.reply('❌ No tienes permiso de **Banear Miembros** para ejecutar esta acción.');

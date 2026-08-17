@@ -3,14 +3,8 @@ const fs = require('node:fs');
 const path = require('node:path');
 require('dotenv').config();
 
-async function deployCommands() {
-  const token = process.env.DISCORD_TOKEN;
-  const clientId = process.env.CLIENT_ID;
-
-  if (!token || !clientId || token === 'tu_token_aqui') {
-    console.log('⚠️ No se registraron comandos REST: Faltan credenciales DISCORD_TOKEN o CLIENT_ID.');
-    return;
-  }
+async function deployCommands(token = process.env.DISCORD_TOKEN, clientId = process.env.CLIENT_ID) {
+  if (!token || !clientId) return;
 
   const commands = [];
   const commandsPath = path.join(__dirname, 'commands');
@@ -34,7 +28,7 @@ async function deployCommands() {
     );
     console.log(`✅ ¡Se registraron ${data.length} comandos de barra (/) en la API de Discord!`);
   } catch (error) {
-    console.error('❌ Error al registrar comandos REST:', error);
+    console.error('❌ Error al registrar comandos REST:', error.message);
   }
 }
 

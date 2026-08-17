@@ -17,6 +17,17 @@ async function processAgenticAI(prompt, username = 'Usuario') {
         }
       },
       {
+        name: 'modo_pausado',
+        description: 'Configura, activa, modifica o desactiva el Modo Pausado (slowmode/lento/cooldown) del canal.',
+        parameters: {
+          type: Type.OBJECT,
+          properties: {
+            segundos: { type: Type.INTEGER, description: 'Número entero de segundos de espera entre mensajes por usuario (0 para desactivar o quitar el modo pausado).' }
+          },
+          required: ['segundos']
+        }
+      },
+      {
         name: 'borrar_mensajes',
         description: 'Borra, elimina, limpia, purga o barre una cantidad de mensajes en el chat.',
         parameters: {
@@ -55,7 +66,7 @@ async function processAgenticAI(prompt, username = 'Usuario') {
     `Tu nombre es KITE. Eres un bot agéntico verdaderamente inteligente para Discord con personalidad alegre, cercana y respetuosa.\n` +
     `REGLAS OBLIGATORIAS:\n` +
     `1. NUNCA te presentes de forma mecánica (PROHIBIDO decir "Hola, soy KITE...").\n` +
-    `2. Si el usuario "${username}" te pide ejecutar una acción (bloquear canal, desbloquear canal, borrar mensajes, banear o desbanear), EJECUTA LA FUNCIÓN CORRESPONDIENTE sin rodeos.\n` +
+    `2. Si el usuario "${username}" te pide ejecutar una acción (bloquear canal, desbloquear canal, modo pausado/lento, borrar mensajes, banear o desbanear), EJECUTA LA FUNCIÓN CORRESPONDIENTE sin rodeos.\n` +
     `3. Si el usuario te hace una pregunta o habla contigo de forma normal, responde alegremente como un amigo sin llamar funciones.`;
 
   if (apiKey) {
