@@ -64,10 +64,11 @@ function parseSemanticIntent(text, guildRoles = []) {
     return { intent: 'RESTRICT_CHANNEL', status: matchedRole ? 'found' : 'no_role', role: matchedRole };
   }
 
-  // 3. CLEAR_MESSAGES
+  // 3. CLEAR_MESSAGES (Borrar / Eliminar / Limpiar / Purgar)
   if (
     lower.includes('elimina') || lower.includes('borra') || lower.includes('purga') ||
-    lower.includes('limpia') || lower.includes('limpiar') || lower.includes('borrar') || lower.includes('barrer')
+    lower.includes('limpia') || lower.includes('limpiar') || lower.includes('borrar') ||
+    lower.includes('barrer') || lower.includes('borrame') || lower.includes('bórralos') || lower.includes('borralos')
   ) {
     const numMatch = lower.match(/(\d+)/);
     const amount = numMatch ? parseInt(numMatch[1], 10) : 5;
@@ -104,26 +105,6 @@ function parseSemanticIntent(text, guildRoles = []) {
   return { intent: 'CHAT' };
 }
 
-const mockRoles = [
-  { id: '111', name: 'Administrador' },
-  { id: '222', name: 'Moderadores' },
-  { id: '333', name: 'Sobreviviente' },
-  { id: '444', name: 'VIP' }
-];
+const mockRoles = [{ name: 'Administrador' }, { name: 'Moderadores' }];
 
-const testPhrases = [
-  'ya quita esa vaina de bloqueo',
-  'quita el bloqueo de este canal',
-  'apaga el candado de este sitio',
-  'deshaz el bloqueo por favor',
-  'saca el cerrojo de aqui',
-  'bloquea esta vaina solo para moderadores',
-  'borra 10 mensajes loco',
-  'saca a este tipo por 3 horas por pesado'
-];
-
-console.log('--- PRUEBA COMPLETA DE ENTENDIMIENTO SEMÁNTICO UNIVERASAL ---');
-for (const p of testPhrases) {
-  const res = parseSemanticIntent(p, mockRoles);
-  console.log(`Frase: "${p}"\n   => Intent Extraído:`, res, '\n');
-}
+console.log('Test borrame esos 3 mensajes:', parseSemanticIntent('borrame esos 3 mensajes', mockRoles));

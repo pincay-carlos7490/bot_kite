@@ -39,7 +39,7 @@ function parseSemanticIntent(text, guildRoles = []) {
   const containsUnlockVerb = unlockVerbs.some(v => lower.includes(v));
   const containsLockNoun = lockNouns.some(n => lower.includes(n));
 
-  // 1. UNRESTRICT_CHANNEL (Desbloquear / Quitar candado / Quitar restricción / Quitar bloqueo / Quitar esa vaina de bloqueo)
+  // 1. UNRESTRICT_CHANNEL (Desbloquear)
   if (
     lower.includes('desbloquea') || lower.includes('desbloquear') ||
     lower.includes('libera') || lower.includes('libérame') || lower.includes('liberame') ||
@@ -50,7 +50,7 @@ function parseSemanticIntent(text, guildRoles = []) {
     return { intent: 'UNRESTRICT_CHANNEL' };
   }
 
-  // 2. RESTRICT_CHANNEL (Bloquear / Restringir / Cerrar / Poner candado / Solo ciertos roles)
+  // 2. RESTRICT_CHANNEL (Bloquear / Restringir)
   if (
     lower.includes('restringe') || lower.includes('restringir') ||
     lower.includes('bloquea') || lower.includes('bloquear') || lower.includes('bloqueo') ||
@@ -96,10 +96,11 @@ function parseSemanticIntent(text, guildRoles = []) {
     return { intent: 'RESTRICT_CHANNEL', status: matchedRole ? 'found' : 'no_role', role: matchedRole };
   }
 
-  // 3. CLEAR_MESSAGES
+  // 3. CLEAR_MESSAGES (Borrar / Eliminar / Limpiar / Purgar)
   if (
     lower.includes('elimina') || lower.includes('borra') || lower.includes('purga') ||
-    lower.includes('limpia') || lower.includes('limpiar') || lower.includes('borrar') || lower.includes('barrer')
+    lower.includes('limpia') || lower.includes('limpiar') || lower.includes('borrar') ||
+    lower.includes('barrer') || lower.includes('borrame') || lower.includes('bórralos') || lower.includes('borralos')
   ) {
     const numMatch = lower.match(/(\d+)/);
     const amount = numMatch ? parseInt(numMatch[1], 10) : 5;

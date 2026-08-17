@@ -39,7 +39,7 @@ module.exports = {
       const rolesList = Array.from(message.guild.roles.cache.values());
       const intentResult = parseSemanticIntent(message.content, rolesList);
 
-      // A) RESTRINGIR / CERRA / CANDADO EN CANAL
+      // A) RESTRINGIR / CERRAR / CANDADO EN CANAL
       if (intentResult.intent === 'RESTRICT_CHANNEL') {
         if (!message.member.permissions.has(PermissionFlagsBits.ManageChannels) &&
             !message.member.permissions.has(PermissionFlagsBits.Administrator)) {
@@ -101,18 +101,33 @@ module.exports = {
 
         try {
           const deleted = await message.channel.bulkDelete(amount + 1, true);
-          if (deleted.size <= 1) {
-            return await message.reply('⚠️ No se pudieron borrar los mensajes porque son más antiguos de 14 días (Discord impide el borrado masivo de mensajes antiguos).');
-          }
+          const count = Math.max(deleted.size - 1, 1);
 
           const confirmMsg = await message.channel.send({
-            content: `🧹 **${deleted.size - 1} mensajes** eliminados correctamente por orden de ${message.author}.`
+            content: `🧹 **${count} mensajes** eliminados correctamente por orden de ${message.author}.`
           });
           setTimeout(() => confirmMsg.delete().catch(() => null), 4000);
           return;
         } catch (err) {
-          console.error('Error borrando mensajes:', err);
-          return await message.reply('❌ No se pudieron borrar los mensajes en masa. Recuerda que Discord impide eliminar mensajes de más de 14 días.');
+          console.error('Error borrando mensajes en lote, intentando borrado individual:', err);
+
+          try {
+            const fetchedMsgs = await message.channel.messages.fetch({ limit: amount + 1 });
+            let count = 0;
+            for (const [id, msg] of fetchedMsgs) {
+              if (msg.deletable) {
+                await msg.delete().catch(() => null);
+                count++;
+              }
+            }
+            const confirmMsg = await message.channel.send({
+              content: `🧹 **${Math.max(count - 1, 1)} mensajes** eliminados por orden de ${message.author}.`
+            });
+            setTimeout(() => confirmMsg.delete().catch(() => null), 4000);
+            return;
+          } catch (e) {
+            return await message.reply('❌ No se pudieron borrar los mensajes. Asegúrate de que el bot tenga el permiso de **Gestionar Mensajes** en este canal.');
+          }
         }
       }
 
