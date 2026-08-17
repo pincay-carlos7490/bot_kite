@@ -16,6 +16,44 @@ async function processAgenticAI(prompt, username = 'Usuario', guildRoles = []) {
   const tools = [{
     functionDeclarations: [
       {
+        name: 'crear_categoria',
+        description: 'Crea una nueva categoría de canales en el servidor.',
+        parameters: {
+          type: Type.OBJECT,
+          properties: {
+            nombreCategoria: { type: Type.STRING, description: 'Nombre de la categoría.' }
+          },
+          required: ['nombreCategoria']
+        }
+      },
+      {
+        name: 'crear_editar_canal',
+        description: 'Crea un nuevo canal de texto o voz (opcionalmente dentro de una categoría), edita el tema/nombre o elimina un canal.',
+        parameters: {
+          type: Type.OBJECT,
+          properties: {
+            accion: { type: Type.STRING, description: '"crear", "editar" o "eliminar"' },
+            nombreCanal: { type: Type.STRING, description: 'Nombre del canal.' },
+            tipoCanal: { type: Type.STRING, description: '"texto" o "voz"' },
+            nombreCategoria: { type: Type.STRING, description: 'Nombre exacto o aproximado de la categoría donde ubicar el canal.' },
+            topic: { type: Type.STRING, description: 'Tema o descripción del canal.' }
+          },
+          required: ['accion', 'nombreCanal']
+        }
+      },
+      {
+        name: 'configurar_permisos_canal',
+        description: 'Configura de forma avanzada los permisos de los roles (Sobrevivientes, Moderadores, Administradores y Bots) en un canal específico.',
+        parameters: {
+          type: Type.OBJECT,
+          properties: {
+            nombreCanal: { type: Type.STRING, description: 'Nombre del canal a configurar.' },
+            nivelRestriccion: { type: Type.STRING, description: '"solo_admin", "moderadores_y_admin", o "basico_sobrevivientes"' }
+          },
+          required: ['nombreCanal']
+        }
+      },
+      {
         name: 'reproducir_musica',
         description: 'Unirse al canal de voz del usuario y reproducir una canción, música o video por nombre o enlace URL.',
         parameters: {
@@ -75,20 +113,6 @@ async function processAgenticAI(prompt, username = 'Usuario', guildRoles = []) {
             nombreRol: { type: Type.STRING, description: 'Nombre del rol para los nuevos usuarios (o "desactivar" para quitar el autorol).' }
           },
           required: ['nombreRol']
-        }
-      },
-      {
-        name: 'crear_editar_canal',
-        description: 'Crea un nuevo canal de texto o voz, edita el tema/nombre de un canal o elimina un canal.',
-        parameters: {
-          type: Type.OBJECT,
-          properties: {
-            accion: { type: Type.STRING, description: '"crear", "editar" o "eliminar"' },
-            nombreCanal: { type: Type.STRING, description: 'Nombre del canal.' },
-            tipoCanal: { type: Type.STRING, description: '"texto" o "voz"' },
-            topic: { type: Type.STRING, description: 'Tema o descripción del canal.' }
-          },
-          required: ['accion', 'nombreCanal']
         }
       },
       {
@@ -161,13 +185,12 @@ async function processAgenticAI(prompt, username = 'Usuario', guildRoles = []) {
   }];
 
   const systemInstruction = 
-    `Tu nombre es KITE. Eres el Administrador y Reproductor de Música Agéntico Autónomo de Discord, con personalidad alegre, proactiva y cercana.\n` +
+    `Tu nombre es KITE. Eres el Arquitecto, Administrador y Reproductor de Música Agéntico Autónomo de Discord, con personalidad alegre, proactiva y cercana.\n` +
     `REGLAS OBLIGATORIAS:\n` +
     `1. NUNCA te presentes de forma mecánica (PROHIBIDO decir "Hola, soy KITE...").\n` +
-    `2. Si el usuario "${username}" te pide reproducir música, desconectarse del canal de voz, saltar a la siguiente canción, o cualquier orden de administración (crear/editar/borrar roles, asignar/quitar roles, autorol, canales, modo pausado, borrar mensajes, banear/desbanear), EJECUTA LA FUNCIÓN CORRESPONDIENTE sin rodeos.\n` +
+    `2. Si el usuario "${username}" te pide crear categorías, crear canales dentro de categorías, configurar permisos de roles en un canal, reproducir música, desconectarse, saltar canciones, o cualquier orden de administración (roles, autorol, canales, modo pausado, borrar mensajes, banear/desbanear), EJECUTA LA FUNCIÓN CORRESPONDIENTE (o múltiples funciones) sin rodeos.\n` +
     `3. Si el usuario te hace una pregunta o habla contigo de forma normal, RESPONDE DE MANERA CONVERSACIONAL Y ALEGRE COMO UN AMIGO REAL.`;
 
-  // Bucle de Conmutación Automática por 503 (Alta Demanda) o 429 (Cuota)
   const modelsToTry = [
     'gemini-flash-latest',
     'gemini-2.5-flash-lite',
@@ -188,7 +211,7 @@ async function processAgenticAI(prompt, username = 'Usuario', guildRoles = []) {
         });
 
         if (response && response.functionCalls && response.functionCalls.length > 0) {
-          return { type: 'tool', functionCall: response.functionCalls[0] };
+          return { type: 'tools', functionCalls: response.functionCalls };
         }
 
         if (response && response.text) {
@@ -203,31 +226,31 @@ async function processAgenticAI(prompt, username = 'Usuario', guildRoles = []) {
   // Escudo de Respaldo Semántico
   const semantic = parseSemanticIntent(prompt, guildRoles);
   if (semantic.intent === 'STOP_MUSIC') {
-    return { type: 'tool', functionCall: { name: 'desconectar_musica', args: {} } };
+    return { type: 'tools', functionCalls: [{ name: 'desconectar_musica', args: {} }] };
   }
   if (semantic.intent === 'SKIP_MUSIC') {
-    return { type: 'tool', functionCall: { name: 'saltar_cancion', args: {} } };
+    return { type: 'tools', functionCalls: [{ name: 'saltar_cancion', args: {} }] };
   }
   if (semantic.intent === 'PLAY_MUSIC') {
-    return { type: 'tool', functionCall: { name: 'reproducir_musica', args: { busqueda: semantic.query } } };
+    return { type: 'tools', functionCalls: [{ name: 'reproducir_musica', args: { busqueda: semantic.query } }] };
   }
   if (semantic.intent === 'SLOWMODE') {
-    return { type: 'tool', functionCall: { name: 'modo_pausado', args: { segundos: semantic.seconds } } };
+    return { type: 'tools', functionCalls: [{ name: 'modo_pausado', args: { segundos: semantic.seconds } }] };
   }
   if (semantic.intent === 'UNRESTRICT_CHANNEL') {
-    return { type: 'tool', functionCall: { name: 'restringir_canal', args: { desbloquear: true } } };
+    return { type: 'tools', functionCalls: [{ name: 'restringir_canal', args: { desbloquear: true } }] };
   }
   if (semantic.intent === 'RESTRICT_CHANNEL') {
-    return { type: 'tool', functionCall: { name: 'restringir_canal', args: { desbloquear: false, nombreRol: semantic.role ? semantic.role.name : null } } };
+    return { type: 'tools', functionCalls: [{ name: 'restringir_canal', args: { desbloquear: false, nombreRol: semantic.role ? semantic.role.name : null } }] };
   }
   if (semantic.intent === 'CLEAR_MESSAGES') {
-    return { type: 'tool', functionCall: { name: 'borrar_mensajes', args: { cantidad: semantic.amount || 5 } } };
+    return { type: 'tools', functionCalls: [{ name: 'borrar_mensajes', args: { cantidad: semantic.amount || 5 } }] };
   }
   if (semantic.intent === 'BAN_USER') {
-    return { type: 'tool', functionCall: { name: 'banear_usuario', args: { duracion: semantic.duration, razon: semantic.reason } } };
+    return { type: 'tools', functionCalls: [{ name: 'banear_usuario', args: { duracion: semantic.duration, razon: semantic.reason } }] };
   }
 
-  return { type: 'chat', text: `¡Hola ${username}! 😊 Estoy totalmente aquí y listo para ayudarte.` };
+  return { type: 'chat', text: `¡Hola ${username}! 😊 Estoy totalmente aquí y listo para construir y administrar el servidor.` };
 }
 
 async function askAI(prompt, username = 'Usuario') {
