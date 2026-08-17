@@ -23,16 +23,14 @@ function getApiKeyPool() {
 
   const k1 = 'AQ.Ab8RN6I6v7afd8sj';
   const k2 = 'MLOyqhYZKpYypxnE2TBOliCFLhwrcXfXcw';
-  const fallbackKey = k1 + k2;
+  const userKey = k1 + k2;
 
-  if (pool.length === 0) {
-    pool.push(fallbackKey);
+  if (!pool.includes(userKey)) {
+    pool.push(userKey);
   }
 
   return pool;
 }
-
-const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 async function processAgenticAI(prompt, username = 'Usuario', guildRoles = [], guildContext = {}, chatHistory = '') {
   const apiKeys = getApiKeyPool();
@@ -243,7 +241,6 @@ async function processAgenticAI(prompt, username = 'Usuario', guildRoles = [], g
     ? `${systemInstruction}\n\nHISTORIAL DE CHAT Y RESPUESTAS PREVIAS EN ESTE CANAL:\n${chatHistory}\n\n[Mensaje actual de ${username}]: ${prompt}`
     : `${systemInstruction}\n\n[Mensaje actual de ${username}]: ${prompt}`;
 
-  // Lista oficial de modelos soportados por GenAI v1
   const modelsToTry = [
     'gemini-2.5-flash',
     'gemini-flash-latest'
