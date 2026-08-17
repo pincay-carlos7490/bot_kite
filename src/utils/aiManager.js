@@ -79,29 +79,39 @@ async function processAgenticAI(prompt, username = 'Usuario', guildRoles = []) {
     `2. Si el usuario "${username}" te pide ejecutar una acción (bloquear canal, desbloquear canal, modo pausado/lento, borrar mensajes, banear o desbanear), EJECUTA LA FUNCIÓN CORRESPONDIENTE sin rodeos.\n` +
     `3. Si el usuario te hace una pregunta o habla contigo de forma normal (por ejemplo "estas ahi?", "hola", "que haces"), RESPONDE DE MANERA CONVERSACIONAL Y ALEGRE COMO UN AMIGO REAL, sin usar plantillas fijas.`;
 
-  // 1. Intentar con Gemini 2.5 Flash Agentic AI
+  // 1. Pool de Modelos con Conmutación por Cuota (Multi-Model Pool Fallback)
+  const modelsToTry = [
+    'gemini-flash-latest',
+    'gemini-2.5-flash-lite',
+    'gemini-3.5-flash',
+    'gemini-2.5-flash'
+  ];
+
   if (apiKey) {
-    try {
-      const ai = new GoogleGenAI({ apiKey: apiKey });
-      const response = await ai.models.generateContent({
-        model: 'gemini-2.5-flash',
-        contents: `${systemInstruction}\n\n[Mensaje de ${username}]: ${prompt}`,
-        config: { tools: tools }
-      });
+    const ai = new GoogleGenAI({ apiKey: apiKey });
 
-      if (response && response.functionCalls && response.functionCalls.length > 0) {
-        return { type: 'tool', functionCall: response.functionCalls[0] };
-      }
+    for (const modelName of modelsToTry) {
+      try {
+        const response = await ai.models.generateContent({
+          model: modelName,
+          contents: `${systemInstruction}\n\n[Mensaje de ${username}]: ${prompt}`,
+          config: { tools: tools }
+        });
 
-      if (response && response.text) {
-        return { type: 'chat', text: response.text };
+        if (response && response.functionCalls && response.functionCalls.length > 0) {
+          return { type: 'tool', functionCall: response.functionCalls[0] };
+        }
+
+        if (response && response.text) {
+          return { type: 'chat', text: response.text };
+        }
+      } catch (err) {
+        console.error(`Aviso: Modelo ${modelName} en pausa por cuota, alternando al siguiente modelo...`);
       }
-    } catch (err) {
-      console.error('Error con Gemini Agentic Engine, usando respaldo:', err.message);
     }
   }
 
-  // 2. Escudo de Respaldo Semántico para Moderación
+  // 2. Escudo de Respaldo Semántico Garantizado para Moderación
   const semantic = parseSemanticIntent(prompt, guildRoles);
   if (semantic.intent === 'UNRESTRICT_CHANNEL') {
     return { type: 'tool', functionCall: { name: 'restringir_canal', args: { desbloquear: true } } };
@@ -119,7 +129,7 @@ async function processAgenticAI(prompt, username = 'Usuario', guildRoles = []) {
     return { type: 'tool', functionCall: { name: 'desbanear_usuario', args: { razon: semantic.reason } } };
   }
 
-  return { type: 'chat', text: `¡Hola ${username}! 😊 Sí, aquí estoy listo para ayudarte. ¿Qué necesitas?` };
+  return { type: 'chat', text: `¡Hola ${username}! 😊 Sí, aquí estoy listo para ayudarte. ¿En qué te puedo echar una mano?` };
 }
 
 async function askAI(prompt, username = 'Usuario') {
