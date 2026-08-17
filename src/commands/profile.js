@@ -4,6 +4,8 @@ module.exports = {
   data: new SlashCommandBuilder()
     .setName('profile')
     .setDescription('Muestra la información de perfil de un usuario en el servidor')
+    .setIntegrationTypes(0, 1)
+    .setContexts(0, 1, 2)
     .addUserOption(option =>
       option.setName('usuario')
         .setDescription('Usuario del cual deseas ver el perfil (Opcional, por defecto tú)')

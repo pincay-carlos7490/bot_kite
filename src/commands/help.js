@@ -3,7 +3,9 @@ const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, Butt
 module.exports = {
   data: new SlashCommandBuilder()
     .setName('help')
-    .setDescription('Muestra la lista completa de comandos y funciones de KITE Bot'),
+    .setDescription('Muestra la lista completa de comandos y funciones de KITE Bot')
+    .setIntegrationTypes(0, 1)
+    .setContexts(0, 1, 2),
 
   async execute(interaction) {
     const clientId = process.env.CLIENT_ID || interaction.client.user.id;

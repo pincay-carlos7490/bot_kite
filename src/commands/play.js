@@ -6,6 +6,8 @@ module.exports = {
   data: new SlashCommandBuilder()
     .setName('play')
     .setDescription('Reproduce una canción en tu canal de voz')
+    .setIntegrationTypes(0, 1)
+    .setContexts(0, 1, 2)
     .addStringOption(option =>
       option.setName('cancion')
         .setDescription('Nombre de la canción o enlace (SoundCloud, YouTube, etc.)')

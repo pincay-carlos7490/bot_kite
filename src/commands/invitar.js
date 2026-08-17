@@ -3,7 +3,9 @@ const { SlashCommandBuilder, EmbedBuilder, ActionRowBuilder, ButtonBuilder, Butt
 module.exports = {
   data: new SlashCommandBuilder()
     .setName('invitar')
-    .setDescription('Obtén el enlace e instrucciones para invitar el bot a tu propio servidor'),
+    .setDescription('Obtén el enlace e instrucciones para invitar el bot a tu propio servidor')
+    .setIntegrationTypes(0, 1)
+    .setContexts(0, 1, 2),
 
   async execute(interaction) {
     const clientId = process.env.CLIENT_ID || interaction.client.user.id;
