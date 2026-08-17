@@ -1,17 +1,22 @@
 const { GoogleGenAI, Type } = require('@google/genai');
 const { parseSemanticIntent } = require('./aiModeration');
 
-function getActiveApiKey() {
-  if (process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY.length > 20) {
-    return process.env.GEMINI_API_KEY;
-  }
+function getApiKeyPool() {
+  const primary = process.env.GEMINI_API_KEY;
   const k1 = 'AQ.Ab8RN6I6v7afd8sj';
   const k2 = 'MLOyqhYZKpYypxnE2TBOliCFLhwrcXfXcw';
-  return k1 + k2;
+  const defaultKey = k1 + k2;
+
+  const pool = [];
+  if (primary && primary.length > 20) pool.push(primary);
+  pool.push(defaultKey);
+  return pool;
 }
 
+const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
 async function processAgenticAI(prompt, username = 'Usuario', guildRoles = [], guildContext = {}, chatHistory = '') {
-  const apiKey = getActiveApiKey();
+  const apiKeys = getApiKeyPool();
 
   const tools = [{
     functionDeclarations: [
@@ -212,46 +217,70 @@ async function processAgenticAI(prompt, username = 'Usuario', guildRoles = [], g
     `ERES UN AGENTE ADMINISTRADOR TOTAL (CERO LIMITACIONES):\n` +
     `1. NUNCA te presentes de forma mecánica (PROHIBIDO decir "Hola, soy KITE...").\n` +
     `2. TIENES HERRAMIENTAS PARA TODO: Cambiar foto/icono del servidor, cambiar el nombre del servidor, crear emojis, cambiar apodos, silenciar en voz, crear y configurar roles, crear y editar canales, modificar permisos, controlar música, etc.\n` +
-    `3. Si el usuario "${username}" te pide cambiar la foto/icono del servidor, INVOCA "gestionar_servidor_general" con tipoAccion: "cambiar_icono" y la URL o imagen adjunta.\n` +
-    `4. Si te pide cambiar el apodo de alguien o silenciar en voz, INVOCA "gestionar_miembro_avanzado".\n` +
+    `3. Si el usuario "${username}" te pide permitir o prohibir ver canales a un rol (ej: "que el rol mute si pueda ver los canales"), INVOCA "configurar_permisos_canal" con rolesObjetivo: "mute", permitirVer: true.\n` +
+    `4. Si te pide cambiar la foto del servidor, INVOCA "gestionar_servidor_general" con tipoAccion: "cambiar_icono".\n` +
     `5. EJECUTA SIEMPRE LA ACCIÓN CORRESPONDIENTE DE FORMA AUTÓNOMA E INMEDIATA.`;
 
   const promptWithMemory = chatHistory 
     ? `${systemInstruction}\n\nHISTORIAL DE CHAT Y RESPUESTAS PREVIAS EN ESTE CANAL:\n${chatHistory}\n\n[Mensaje actual de ${username}]: ${prompt}`
     : `${systemInstruction}\n\n[Mensaje actual de ${username}]: ${prompt}`;
 
+  // Lista oficial limpia de modelos
   const modelsToTry = [
-    'gemini-flash-latest',
     'gemini-2.5-flash',
-    'gemini-1.5-flash',
-    'gemini-2.0-flash'
+    'gemini-flash-latest'
   ];
 
-  if (apiKey) {
-    const ai = new GoogleGenAI({ apiKey: apiKey });
+  for (const key of apiKeys) {
+    const ai = new GoogleGenAI({ apiKey: key });
 
     for (const modelName of modelsToTry) {
-      try {
-        const response = await ai.models.generateContent({
-          model: modelName,
-          contents: promptWithMemory,
-          config: { tools: tools }
-        });
+      for (let attempt = 1; attempt <= 2; attempt++) {
+        try {
+          const response = await ai.models.generateContent({
+            model: modelName,
+            contents: promptWithMemory,
+            config: { tools: tools }
+          });
 
-        if (response && response.functionCalls && response.functionCalls.length > 0) {
-          return { type: 'tools', functionCalls: response.functionCalls };
-        }
+          if (response && response.functionCalls && response.functionCalls.length > 0) {
+            return { type: 'tools', functionCalls: response.functionCalls };
+          }
 
-        if (response && response.text) {
-          return { type: 'chat', text: response.text };
+          if (response && response.text) {
+            return { type: 'chat', text: response.text };
+          }
+        } catch (err) {
+          const isRateLimit = err.message && (err.message.includes('429') || err.message.includes('quota'));
+          console.log(`Modelo ${modelName} (Intento ${attempt}): ${err.message ? err.message.substring(0, 70) : ''}...`);
+
+          if (isRateLimit && attempt === 1) {
+            console.log('Esperando 1.5 segundos para reintentar debido a Rate Limit 429...');
+            await sleep(1500);
+          } else {
+            break;
+          }
         }
-      } catch (err) {
-        console.log(`Modelo ${modelName} en alta demanda o limite (Error: ${err.message.substring(0, 60)}...), pasando al siguiente modelo del pool...`);
       }
     }
   }
 
-  // Escudo de Respaldo Semántico
+  // Escudo de Respaldo Semántico Inteligente en caso de Límite de Cuota 429
+  const promptLower = prompt.toLowerCase();
+
+  if (promptLower.includes('ver los canales') || promptLower.includes('ver canales')) {
+    const roleMatch = promptLower.match(/rol\s+([a-záéíóúñ0-9_\-]+)/i);
+    const targetRoleName = roleMatch ? roleMatch[1] : 'mute';
+    const allow = !promptLower.includes('no pueda') && !promptLower.includes('quítale') && !promptLower.includes('quitale');
+    return {
+      type: 'tools',
+      functionCalls: [{
+        name: 'configurar_permisos_canal',
+        args: { rolesObjetivo: targetRoleName, permitirVer: allow }
+      }]
+    };
+  }
+
   const semantic = parseSemanticIntent(prompt, guildRoles);
   if (semantic.intent === 'STOP_MUSIC') {
     return { type: 'tools', functionCalls: [{ name: 'desconectar_musica', args: {} }] };
@@ -278,7 +307,7 @@ async function processAgenticAI(prompt, username = 'Usuario', guildRoles = [], g
     return { type: 'tools', functionCalls: [{ name: 'banear_usuario', args: { duracion: semantic.duration, razon: semantic.reason } }] };
   }
 
-  return { type: 'chat', text: `¡Hola ${username}! 😊 Estoy totalmente aquí y listo para ayudarte.` };
+  return { type: 'chat', text: `¡Hola ${username}! 😊 Estoy procesando tu solicitud, ¿puedes volver a indicarme la orden?` };
 }
 
 async function askAI(prompt, username = 'Usuario') {
