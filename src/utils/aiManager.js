@@ -1,6 +1,7 @@
 const { GoogleGenAI, Type } = require('@google/genai');
+const { parseSemanticIntent } = require('./aiModeration');
 
-async function processAgenticAI(prompt, username = 'Usuario') {
+async function processAgenticAI(prompt, username = 'Usuario', guildRoles = []) {
   const apiKey = process.env.GEMINI_API_KEY;
 
   const tools = [{
@@ -69,6 +70,7 @@ async function processAgenticAI(prompt, username = 'Usuario') {
     `2. Si el usuario "${username}" te pide ejecutar una acción (bloquear canal, desbloquear canal, modo pausado/lento, borrar mensajes, banear o desbanear), EJECUTA LA FUNCIÓN CORRESPONDIENTE sin rodeos.\n` +
     `3. Si el usuario te hace una pregunta o habla contigo de forma normal, responde alegremente como un amigo sin llamar funciones.`;
 
+  // 1. Intentar primero con el motor de Inteligencia Artificial Agéntica de Gemini 2.5
   if (apiKey) {
     try {
       const ai = new GoogleGenAI({ apiKey: apiKey });
@@ -86,8 +88,26 @@ async function processAgenticAI(prompt, username = 'Usuario') {
         return { type: 'chat', text: response.text };
       }
     } catch (err) {
-      console.error('Error con Gemini Agentic Engine:', err.message);
+      console.error('Error con Gemini Agentic Engine, activando escudo de respaldo:', err.message);
     }
+  }
+
+  // 2. Escudo de Respaldo Semántico Garantizado (por si falla la API Key en la nube)
+  const semantic = parseSemanticIntent(prompt, guildRoles);
+  if (semantic.intent === 'UNRESTRICT_CHANNEL') {
+    return { type: 'tool', functionCall: { name: 'restringir_canal', args: { desbloquear: true } } };
+  }
+  if (semantic.intent === 'RESTRICT_CHANNEL') {
+    return { type: 'tool', functionCall: { name: 'restringir_canal', args: { desbloquear: false, nombreRol: semantic.role ? semantic.role.name : null } } };
+  }
+  if (semantic.intent === 'CLEAR_MESSAGES') {
+    return { type: 'tool', functionCall: { name: 'borrar_mensajes', args: { cantidad: semantic.amount || 5 } } };
+  }
+  if (semantic.intent === 'BAN_USER') {
+    return { type: 'tool', functionCall: { name: 'banear_usuario', args: { duracion: semantic.duration, razon: semantic.reason } } };
+  }
+  if (semantic.intent === 'UNBAN_USER') {
+    return { type: 'tool', functionCall: { name: 'desbanear_usuario', args: { razon: semantic.reason } } };
   }
 
   return { type: 'chat', text: `¡Hola ${username}! 🍃 Dime en qué te puedo ayudar o qué quieres hacer en el servidor.` };

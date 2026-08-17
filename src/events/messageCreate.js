@@ -33,13 +33,14 @@ module.exports = {
     }
 
     // -------------------------------------------------------------
-    // CASO 2: Motor Agéntico de IA por Mención (@KITE) - Function Calling Pura de Gemini 2.5
+    // CASO 2: Motor Agéntico de IA por Mención (@KITE) - Function Calling Pura con Doble Escudo
     // -------------------------------------------------------------
     if (message.mentions.has(message.client.user) && !message.mentions.everyone) {
       await message.channel.sendTyping();
 
       const cleanPrompt = message.content.replace(/<@!?\d+>/g, '').trim();
-      const agentResult = await processAgenticAI(cleanPrompt, message.author.username);
+      const rolesList = Array.from(message.guild.roles.cache.values());
+      const agentResult = await processAgenticAI(cleanPrompt, message.author.username, rolesList);
 
       if (agentResult.type === 'tool' && agentResult.functionCall) {
         const fn = agentResult.functionCall;
