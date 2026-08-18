@@ -86,10 +86,36 @@ module.exports = {
             const prop = (args.metodoPropiedad || '').toLowerCase();
             const valStr = String(args.valor || '').toLowerCase();
 
-            if (entity.includes('rol') || prop.includes('hoist') || prop.includes('separado')) {
+            if (entity.includes('rol') || prop.includes('color') || prop.includes('hoist') || prop.includes('separado')) {
               const resTarget = findRoleInGuild(args.nombreObjetivo, message.guild, message.mentions);
               if (resTarget.status === 'found') {
                 const r = resTarget.role;
+
+                if (prop.includes('color')) {
+                  const colorMap = {
+                    'amarillo brillante': '#FFEE00',
+                    amarillo: '#FFFF00',
+                    dorado: '#FFD700',
+                    azul: '#0000FF',
+                    rojo: '#FF0000',
+                    verde: '#00FF00',
+                    morado: '#800080',
+                    rosa: '#FFC0CB'
+                  };
+                  const hex = colorMap[valStr] || valStr || '#FFFF00';
+                  try {
+                    await r.setColor(hex);
+                    const embed = new EmbedBuilder()
+                      .setColor(r.color || '#57F287')
+                      .setTitle('🎨 Color de Rol Actualizado')
+                      .setDescription(`El color del rol **${r.name}** (${r}) ha sido cambiado a **${valStr}**.`)
+                      .addFields({ name: '🛡️ Moderador', value: `${message.author}` })
+                      .setTimestamp();
+                    await message.channel.send({ embeds: [embed] });
+                    continue;
+                  } catch (e) {}
+                }
+
                 const isFalse = valStr.includes('false') || cleanPrompt.toLowerCase().includes('no ');
                 try {
                   await r.setHoist(!isFalse);
@@ -106,7 +132,7 @@ module.exports = {
             }
           }
 
-          // 0. GESTIONAR ROLES AVANZADO (RENOMBRAR, MOVER JERARQUÍA, SEPARAR MIEMBROS - HOIST)
+          // 0. GESTIONAR ROLES AVANZADO (CAMBIAR COLOR, RENOMBRAR, MOVER JERARQUÍA, SEPARAR MIEMBROS - HOIST)
           if (name === 'gestionar_roles_avanzado') {
             if (!message.member.permissions.has(PermissionFlagsBits.ManageRoles) &&
                 !message.member.permissions.has(PermissionFlagsBits.Administrator)) {
@@ -119,6 +145,38 @@ module.exports = {
 
             if (resTarget.status === 'found') {
               const targetRole = resTarget.role;
+
+              // Cambiar color del rol
+              if (args.color) {
+                const colorMap = {
+                  'amarillo brillante': '#FFEE00',
+                  amarillo: '#FFFF00',
+                  dorado: '#FFD700',
+                  azul: '#0000FF',
+                  rojo: '#FF0000',
+                  verde: '#00FF00',
+                  morado: '#800080',
+                  rosa: '#FFC0CB',
+                  negro: '#000001',
+                  blanco: '#FFFFFF',
+                  gris: '#808080'
+                };
+                const colorHex = colorMap[(args.color || '').toLowerCase()] || args.color || '#FFFF00';
+                try {
+                  await targetRole.setColor(colorHex, `Por orden de ${message.author.tag}`);
+                  const embed = new EmbedBuilder()
+                    .setColor(colorHex)
+                    .setTitle('🎨 Color de Rol Actualizado')
+                    .setDescription(`El color del rol **${targetRole.name}** (${targetRole}) ha sido cambiado exitosamente a **${args.color}**.`)
+                    .addFields({ name: '🛡️ Moderador', value: `${message.author}` })
+                    .setTimestamp();
+                  await message.channel.send({ embeds: [embed] });
+                  continue;
+                } catch (err) {
+                  await message.reply('❌ No pude cambiar el color de ese rol.');
+                  continue;
+                }
+              }
 
               // Cambiar visibilidad de separado en lista de miembros (Hoist)
               if (typeof args.separarMiembros === 'boolean') {
