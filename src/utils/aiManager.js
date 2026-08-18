@@ -39,16 +39,12 @@ async function processAgenticAI(prompt, username = 'Usuario', guildRoles = [], g
     functionDeclarations: [
       {
         name: 'configurar_permisos_canal',
-        description: 'Modifica de forma AGÉNTICA Y UNIVERSAL cualquier permiso de canal en Discord (UseSoundboard, SendPolls, CreatePublicThreads, CreatePrivateThreads, Stream, Speak, Connect, SendMessages, ViewChannel, ManageMessages, AddReactions, etc.) para cualquier rol o @everyone.',
+        description: 'Modifica de forma AGÉNTICA Y UNIVERSAL cualquier permiso de canal en Discord (Usar panel de sonidos / soundboard, sonidos externos, transmitir en vivo, hablar, conectar, crear encuestas, escribir, hilos públicos, hilos privados, ver canal, imágenes, reacciones, emojis externos, menciones, borrar mensajes, crear invitaciones, etc.) para cualquier rol o @everyone.',
         parameters: {
           type: Type.OBJECT,
           properties: {
-            nombreCanal: { type: Type.STRING, description: 'Nombre o mención del canal a configurar.' },
+            nombreCanal: { type: Type.STRING, description: 'Nombre o mención del canal a configurar (ej: "#Reunion" o "Reunion" o "memes").' },
             rolesObjetivo: { type: Type.STRING, description: 'Roles a los cuales modificar permisos (ej: "sobrevivientes", "everyone", "moderadores", "bots", "todos", "mute").' },
-            permisosLibres: {
-              type: Type.STRING,
-              description: 'Cadena de texto o pares clave-valor de permisos a modificar (ej: "UseSoundboard: true", "SendPolls: false", "ViewChannel: false").'
-            },
             permitirUsarPanelDeSonidos: { type: Type.BOOLEAN, description: 'True para permitir usar el panel de sonidos / soundboard (Verde ✅), False para prohibir (Rojo ❌).' },
             permitirSonidosExternos: { type: Type.BOOLEAN, description: 'True para permitir usar sonidos externos de soundboard, False para prohibir.' },
             permitirTransmitir: { type: Type.BOOLEAN, description: 'True para permitir transmitir en vivo / compartir pantalla (Stream), False para denegar.' },
@@ -137,6 +133,19 @@ async function processAgenticAI(prompt, username = 'Usuario', guildRoles = [], g
             topic: { type: Type.STRING, description: 'Tema o descripción del canal.' }
           },
           required: ['accion', 'nombreCanal']
+        }
+      },
+      {
+        name: 'gestionar_eventos_invitaciones',
+        description: 'Crea enlaces de invitación instantánea al servidor o crea eventos programados en el servidor.',
+        parameters: {
+          type: Type.OBJECT,
+          properties: {
+            tipoAccion: { type: Type.STRING, description: '"crear_invitacion" o "crear_evento"' },
+            nombreEvento: { type: Type.STRING, description: 'Nombre del evento (si aplica).' },
+            descripcion: { type: Type.STRING, description: 'Descripción o detalle.' }
+          },
+          required: ['tipoAccion']
         }
       },
       {
@@ -238,12 +247,17 @@ async function processAgenticAI(prompt, username = 'Usuario', guildRoles = [], g
   const guildSummary = guildContext.summary || 'Servidor Activo';
 
   const systemInstruction = 
-    `Tu nombre es KITE. Eres el Agente Autónomo Administrador Absoluto de Discord con PODER Y ACCESO COMPLETO Y TOTAL SOBRE EL SERVIDOR.\n` +
-    `ESTADO ACTUAL DEL SERVIDOR:\n${guildSummary}\n\n` +
-    `ERES UN AGENTE ADMINISTRADOR TOTAL (CERO LIMITACIONES):\n` +
+    `Tu nombre es KITE. Eres el AGENTE AUTÓNOMO CON CONOCIMIENTO Y CONTROL TOTAL DE DISCORD.\n` +
+    `ESTADO COMPLETO DEL SERVIDOR EN TIEMPO REAL:\n${guildSummary}\n\n` +
+    `ERES UN AGENTE ADMINISTRADOR TOTAL (TODAS LAS HERRAMIENTAS DE DISCORD DISPONIBLES):\n` +
     `1. NUNCA te presentes de forma mecánica (PROHIBIDO decir "Hola, soy KITE...").\n` +
-    `2. TIENES HERRAMIENTAS PARA ABSOLUTAMENTE TODO EN DISCORD (panel de sonidos/soundboard, hablar, conectar, transmitir en vivo, crear encuestas, hilos públicos/privados, reacciones, emojis externos, borrar mensajes, cambiar fotos, apodos, etc.).\n` +
-    `3. Si el usuario "${username}" te pide modificar CUALQUIER PERMISO DE CANAL, INVOCA OBLIGATORIAMENTE "configurar_permisos_canal" asignando las propiedades exactas.\n` +
+    `2. POSEES EL CONOCIMIENTO Y CONEXIÓN CON TODAS LAS CAPACIDADES DE DISCORD:\n` +
+    `   - Permisos de Voz y Canales: Usar panel de sonidos (soundboard), sonidos externos, transmitir en vivo / compartir pantalla, hablar, conectar.\n` +
+    `   - Permisos de Texto: Crear encuestas, hilos públicos, hilos privados, mensajes en hilos, imágenes, reacciones, emojis externos, borrar mensajes, ver canal, historial.\n` +
+    `   - Administración del Servidor: Cambiar foto/icono del servidor, cambiar nombre del servidor, crear emojis, crear eventos, crear invitaciones.\n` +
+    `   - Control de Miembros y Roles: Cambiar apodos, silenciar en voz, banear, desbanear, crear/eliminar roles sin duplicados.\n` +
+    `   - Música en Voz: Reproducir música, saltar canciones, desconectar.\n` +
+    `3. Si el usuario "${username}" te pide modificar CUALQUIER opción, INVOCA LA HERRAMIENTA CORRESPONDIENTE DE FORMA INMEDIATA.\n` +
     `4. REGLA DE NO DUPLICACIÓN: Si lees en el HISTORIAL que ya se creó un rol o canal, actualiza sus permisos sin duplicarlo.`;
 
   const promptWithMemory = chatHistory 
