@@ -33,23 +33,23 @@ function getApiKeyPool() {
 }
 
 // -------------------------------------------------------------
-// DICCIONARIOS DE HERRAMIENTAS POR NÚCLEOS Y SINÓNIMOS EN ESPAÑOL
+// DICCIONARIOS MULTILINGÜES DE HERRAMIENTAS (ESPAÑOL, INGLÉS, MULTILENGUAJE)
 // -------------------------------------------------------------
 
 const toolRoles = {
   name: 'gestionar_roles_avanzado',
-  description: 'Administra cualquier propiedad de roles en Discord. Soporta expresiones en español: "color", "cambiar color", "sea de color", "amarillo", "azul", "rojo", "verde", "dorado", "separado", "no aparezca separado", "agrupar", "lista lateral", "barra de miembros", "hoist", "renombrar", "cambiar nombre", "se llame", "mención", "debajo del rol", "encima del rol", "crear rol", "eliminar rol".',
+  description: 'Administra propiedades de roles en Discord en CUALQUIER IDIOMA (Español, Inglés, Portugués, Francés, etc.). Modifica: color / role color (amarillo brillante, bright yellow, cyan, celeste, dorado, etc.), mostrar u ocultar por separado / hoist / role separation, renombrar / rename role, mover jerarquía / position, permitir mención / mentionable, crear / create role, eliminar / delete role.',
   parameters: {
     type: Type.OBJECT,
     properties: {
       accion: { type: Type.STRING, description: '"crear", "eliminar", "mover_jerarquia", "editar"' },
-      nombreRol: { type: Type.STRING, description: 'Nombre o mención del rol objetivo (ej: "@Moderadores" o "Moderadores").' },
-      rolReferencia: { type: Type.STRING, description: 'Rol de referencia para colocarlo por encima o por debajo.' },
-      posicionRelativa: { type: Type.STRING, description: '"debajo" o "encima"' },
-      color: { type: Type.STRING, description: 'Color del rol (ej: "amarillo brillante", "amarillo", "azul", "rojo", "dorado", "#FFD700").' },
-      nuevoNombre: { type: Type.STRING, description: 'Nuevo nombre para el rol.' },
-      separarMiembros: { type: Type.BOOLEAN, description: 'True para mostrar miembros por separado (Hoist), False para agrupar.' },
-      permitirMencion: { type: Type.BOOLEAN, description: 'True para permitir que cualquiera mencione el rol, False para prohibir.' }
+      nombreRol: { type: Type.STRING, description: 'Nombre o mención del rol objetivo.' },
+      rolReferencia: { type: Type.STRING, description: 'Rol de referencia para colocación.' },
+      posicionRelativa: { type: Type.STRING, description: '"debajo" o "encima" / "below" or "above"' },
+      color: { type: Type.STRING, description: 'Color del rol en cualquier idioma o código HEX (ej: "amarillo brillante", "bright yellow", "cyan", "celeste", "dorado", "#FFEE00").' },
+      nuevoNombre: { type: Type.STRING, description: 'Nuevo nombre para el rol en cualquier idioma.' },
+      separarMiembros: { type: Type.BOOLEAN, description: 'True para mostrar miembros por separado en la lista lateral (Hoist), False para agrupar.' },
+      permitirMencion: { type: Type.BOOLEAN, description: 'True para permitir mención del rol, False para prohibir.' }
     },
     required: ['accion', 'nombreRol']
   }
@@ -57,7 +57,7 @@ const toolRoles = {
 
 const toolPermisos = {
   name: 'configurar_permisos_canal',
-  description: 'Modifica permisos de canal en Discord: soundboard, panel de sonidos, transmitir pantalla, hablar, conectar, encuestas, hilos públicos/privados, escribir, ver canal, etc.',
+  description: 'Modifica permisos de canal en CUALQUIER IDIOMA: soundboard / panel de sonidos, stream / transmitir pantalla, speak / hablar, connect / conectar, polls / encuestas, threads / hilos, write / escribir, view / ver canal.',
   parameters: {
     type: Type.OBJECT,
     properties: {
@@ -73,7 +73,7 @@ const toolPermisos = {
 
 const toolCanales = {
   name: 'gestionar_canal_avanzado',
-  description: 'Propiedades de canales: renombrar, tema/topic, nsfw, modo pausado, mover a categoría.',
+  description: 'Edita propiedades de canales y categorías en cualquier idioma: renombrar, tema/topic, nsfw, modo pausado/slowmode.',
   parameters: {
     type: Type.OBJECT,
     properties: {
@@ -87,7 +87,7 @@ const toolCanales = {
 
 const toolServidor = {
   name: 'gestionar_servidor_general',
-  description: 'Servidor: foto/icono, nombre, banner, emojis, invitaciones, eventos.',
+  description: 'Servidor: foto/icono, nombre, banner, emojis, invitaciones, eventos en cualquier idioma.',
   parameters: {
     type: Type.OBJECT,
     properties: {
@@ -100,7 +100,7 @@ const toolServidor = {
 
 const toolMiembros = {
   name: 'gestionar_miembro_avanzado',
-  description: 'Miembros: apodos, silenciar en voz, timeout, banear, desbanear, roles.',
+  description: 'Miembros: apodos/nicknames, silenciar en voz/voice mute, timeout, banear/ban, desbanear/unban, roles.',
   parameters: {
     type: Type.OBJECT,
     properties: {
@@ -114,14 +114,14 @@ const toolMiembros = {
 
 const toolDinamicaUniversal = {
   name: 'ejecutar_metodo_discord_dinamico',
-  description: 'HERRAMIENTA DINÁMICA DE RESPALDO PARA CUALQUIER PROPIEDAD DE DISCORD: permite cambiar color, apodo, visibilidad o permisos.',
+  description: 'HERRAMIENTA DINÁMICA DE RESPALDO MULTILINGÜE PARA CUALQUIER IDIOMA Y PROPIEDAD DE DISCORD.',
   parameters: {
     type: Type.OBJECT,
     properties: {
       entidadObjetivo: { type: Type.STRING, description: '"rol", "canal", "servidor", "miembro"' },
       nombreObjetivo: { type: Type.STRING, description: 'Nombre o mención del objetivo.' },
-      metodoPropiedad: { type: Type.STRING, description: 'Propiedad o acción (ej: "color", "hoist", "nombre").' },
-      valor: { type: Type.STRING, description: 'Valor (ej: "amarillo", "true", "false").' }
+      metodoPropiedad: { type: Type.STRING, description: 'Propiedad o acción en cualquier idioma (ej: "color", "hoist", "separado", "nombre").' },
+      valor: { type: Type.STRING, description: 'Valor (ej: "amarillo brillante", "bright yellow", "true", "false").' }
     },
     required: ['entidadObjetivo', 'nombreObjetivo', 'metodoPropiedad']
   }
@@ -131,19 +131,19 @@ function selectContextualTools(prompt) {
   const p = prompt.toLowerCase();
   const selected = [];
 
-  if (p.includes('rol') || p.includes('roles') || p.includes('color') || p.includes('separado') || p.includes('hoist') || p.includes('jerarquia') || p.includes('debajo') || p.includes('encima') || p.includes('se llame') || p.includes('renombrar')) {
+  if (p.includes('rol') || p.includes('role') || p.includes('color') || p.includes('separado') || p.includes('hoist') || p.includes('jerarquia') || p.includes('hierarchy') || p.includes('debajo') || p.includes('below') || p.includes('encima') || p.includes('above') || p.includes('se llame') || p.includes('rename')) {
     selected.push(toolRoles);
   }
 
-  if (p.includes('canal') || p.includes('canales') || p.includes('permiso') || p.includes('permisos') || p.includes('soundboard') || p.includes('ver') || p.includes('escribir')) {
+  if (p.includes('canal') || p.includes('channel') || p.includes('permiso') || p.includes('permission') || p.includes('soundboard') || p.includes('ver') || p.includes('view') || p.includes('escribir') || p.includes('write')) {
     selected.push(toolPermisos, toolCanales);
   }
 
-  if (p.includes('servidor') || p.includes('foto') || p.includes('icono') || p.includes('emoji')) {
+  if (p.includes('servidor') || p.includes('server') || p.includes('foto') || p.includes('icon') || p.includes('emoji')) {
     selected.push(toolServidor);
   }
 
-  if (p.includes('usuario') || p.includes('miembro') || p.includes('apodo') || p.includes('mute')) {
+  if (p.includes('usuario') || p.includes('user') || p.includes('miembro') || p.includes('member') || p.includes('apodo') || p.includes('nickname') || p.includes('mute') || p.includes('ban')) {
     selected.push(toolMiembros);
   }
 
@@ -162,13 +162,16 @@ async function processAgenticAI(prompt, username = 'Usuario', guildRoles = [], g
   const guildSummary = guildContext.summary || 'Servidor Activo';
 
   const systemInstruction = 
-    `Tu nombre es KITE. Eres el AGENTE AUTÓNOMO CON CONOCIMIENTO Y CONTROL TOTAL DE DISCORD.\n` +
+    `Tu nombre es KITE. Eres el AGENTE AUTÓNOMO MULTILINGÜE CON CONTROL TOTAL DE DISCORD.\n` +
     `ESTADO DEL SERVIDOR EN TIEMPO REAL:\n${guildSummary}\n\n` +
-    `REGLAS DE EJECUCIÓN DIRECTA (CERO PRESENTACIONES MECÁNICAS):\n` +
-    `1. NUNCA te presentes de forma mecánica ("Hola, soy KITE...").\n` +
-    `2. CAMBIAR COLOR DE UN ROL: Si el usuario "${username}" te pide cambiar el color de un rol (ej: "quiero que el rol Moderadores sea de color amarillo brillante"), INVOCA "gestionar_roles_avanzado" asignando accion: "editar", nombreRol: "Moderadores", color: "amarillo brillante".\n` +
-    `3. SEPARADO EN LISTA (Hoist): Si piden que un rol NO aparezca separado, INVOCA "gestionar_roles_avanzado" con accion: "editar", separarMiembros: false.\n` +
-    `4. PROHIBIDO DECIR "NO DISPONGO DE UNA FUNCIÓN". EJECUTA SIEMPRE LA HERRAMIENTA CORRESPONDIENTE DE FORMA INMEDIATA.`;
+    `REGLAS MULTILINGÜES DE ATENCIÓN Y EJECUCIÓN DIRECTA:\n` +
+    `1. COMPRENSIÓN MULTILINGÜE TOTAL: Entiende peticiones de Discord en CUALQUIER IDIOMA (Español, Inglés, Portugués, Francés, etc.).\n` +
+    `2. NUNCA te presentes de forma mecánica ("Hola, soy KITE...").\n` +
+    `3. COLORES MULTILINGÜES (gestionar_roles_avanzado):\n` +
+    `   - Si el usuario "${username}" te pide cambiar el color de un rol en cualquier idioma o estilo (ej: "amarillo brillante", "bright yellow", "cyan", "celeste", "dorado", "rojo pasion"), INVOCA "gestionar_roles_avanzado" asignando accion: "editar", nombreRol: el rol, color: el color recibido.\n` +
+    `4. SEPARADO EN LISTA (Hoist):\n` +
+    `   - Si piden que un rol NO aparezca separado (o SÍ aparezca separado), INVOCA "gestionar_roles_avanzado" con accion: "editar", separarMiembros: false (o true).\n` +
+    `5. PROHIBIDO DECIR "NO DISPONGO DE UNA FUNCIÓN". EJECUTA SIEMPRE LA HERRAMIENTA CORRESPONDIENTE DE FORMA INMEDIATA.`;
 
   const promptWithMemory = chatHistory 
     ? `${systemInstruction}\n\nHISTORIAL DE CHAT:\n${chatHistory}\n\n[Mensaje de ${username}]: ${prompt}`
@@ -199,21 +202,20 @@ async function processAgenticAI(prompt, username = 'Usuario', guildRoles = [], g
           return { type: 'chat', text: response.text };
         }
       } catch (err) {
-        // Restaurar registro claro de diagnóstico para visibilidad en Render
         console.log(`[Diagnostic Log] Key (${key.substring(0, 8)}...) - Modelo ${modelName}: ${err.message ? err.message.substring(0, 80) : ''}`);
       }
     }
   }
 
   // -------------------------------------------------------------
-  // MOTOR DE RESPALDO ULTRA-SEMÁNTICO INFALIBLE (FUNCIONA AÚN SI LA API FALLA)
+  // MOTOR DE RESPALDO ULTRA-SEMÁNTICO MULTILINGÜE INFALIBLE
   // -------------------------------------------------------------
   const promptLower = prompt.toLowerCase();
 
-  // Cambiar Color de Rol (ej: "quiero que el rol @Moderadores sea de color amarillo brillante")
-  if (promptLower.includes('color')) {
-    const roleMatch = prompt.match(/(?:rol\s+@?|el\s+rol\s+@?)([a-záéíóúñ0-9_\-\s]+?)(?:\s+sea|\s+de|\s+color|$)/i);
-    const colorMatch = prompt.match(/color\s+([a-záéíóúñ0-9_\-\s]+)/i) || prompt.match(/sea\s+de\s+color\s+([a-záéíóúñ0-9_\-\s]+)/i);
+  // Cambiar Color de Rol en cualquier idioma
+  if (promptLower.includes('color') || promptLower.includes('colour')) {
+    const roleMatch = prompt.match(/(?:rol\s+@?|el\s+rol\s+@?|role\s+@?)([a-záéíóúñ0-9_\-\s]+?)(?:\s+sea|\s+de|\s+color|\s+is|\s+to|$)/i);
+    const colorMatch = prompt.match(/(?:color|colour)\s+([a-záéíóúñ0-9_\-\s]+)/i) || prompt.match(/(?:sea|is)\s+de\s+color\s+([a-záéíóúñ0-9_\-\s]+)/i);
     const targetName = roleMatch ? roleMatch[1].trim() : 'moderadores';
     const targetColor = colorMatch ? colorMatch[1].trim() : 'amarillo brillante';
 
@@ -231,7 +233,7 @@ async function processAgenticAI(prompt, username = 'Usuario', guildRoles = [], g
   }
 
   // Opción de Separado / Hoist en la lista de miembros
-  if (promptLower.includes('separado') || promptLower.includes('separados') || promptLower.includes('lista de miembros') || promptLower.includes('barra lateral')) {
+  if (promptLower.includes('separado') || promptLower.includes('separados') || promptLower.includes('lista de miembros') || promptLower.includes('hoist')) {
     const isDeny = promptLower.includes('no aparezca') || promptLower.includes('no se muestre') || promptLower.includes('no ');
     const roleMatch = prompt.match(/(?:rol\s+de?\s*@?|el\s+rol\s+@?)([a-záéíóúñ0-9_\-\s]+?)(?:\s+no|\s+que|\s+aparezca|\s+se|$)/i);
     const targetName = roleMatch ? roleMatch[1].trim() : 'el goat';
@@ -249,8 +251,8 @@ async function processAgenticAI(prompt, username = 'Usuario', guildRoles = [], g
   }
 
   // Renombrar rol
-  if (promptLower.includes('renombres') || promptLower.includes('renombrar') || promptLower.includes('nombre del rol') || promptLower.includes('nombre de rol') || promptLower.includes('cambiale el nombre') || promptLower.includes('se llame')) {
-    const renameMatch = prompt.match(/(?:renombres\s+(?:un\s+)?rol\s+@?|nombre\s+del?\s*@?|cambiale\s+el\s+nombre\s+del?\s*@?)([a-záéíóúñ0-9_\-\s]+)\s+(?:por\s+el\s+nombre\s+|se\s+llame\s+|por\s+)?([a-záéíóúñ0-9_\-\s]+)/i);
+  if (promptLower.includes('renombres') || promptLower.includes('renombrar') || promptLower.includes('nombre del rol') || promptLower.includes('rename')) {
+    const renameMatch = prompt.match(/(?:renombres\s+(?:un\s+)?rol\s+@?|nombre\s+del?\s*@?|rename\s+role\s+@?)([a-záéíóúñ0-9_\-\s]+)\s+(?:por\s+el\s+nombre\s+|se\s+llame\s+|to\s+)?([a-záéíóúñ0-9_\-\s]+)/i);
     if (renameMatch) {
       return {
         type: 'tools',
@@ -266,8 +268,8 @@ async function processAgenticAI(prompt, username = 'Usuario', guildRoles = [], g
     }
   }
 
-  if (promptLower.includes('debajo del rol') || promptLower.includes('encima del rol') || promptLower.includes('debajo de') || promptLower.includes('encima de')) {
-    const roleMatches = prompt.match(/rol\s+de?\s*@?([a-záéíóúñ0-9_\-\s]+)\s+(debajo|encima)\s+del?\s*rol\s+@?([a-záéíóúñ0-9_\-\s]+)/i);
+  if (promptLower.includes('debajo del rol') || promptLower.includes('encima del rol') || promptLower.includes('below') || promptLower.includes('above')) {
+    const roleMatches = prompt.match(/rol\s+de?\s*@?([a-záéíóúñ0-9_\-\s]+)\s+(debajo|encima|below|above)\s+del?\s*rol\s+@?([a-záéíóúñ0-9_\-\s]+)/i);
     if (roleMatches) {
       return {
         type: 'tools',
@@ -276,7 +278,7 @@ async function processAgenticAI(prompt, username = 'Usuario', guildRoles = [], g
           args: {
             accion: 'mover_jerarquia',
             nombreRol: roleMatches[1].trim(),
-            posicionRelativa: roleMatches[2].toLowerCase(),
+            posicionRelativa: roleMatches[2].toLowerCase().includes('debajo') || roleMatches[2].toLowerCase().includes('below') ? 'debajo' : 'encima',
             rolReferencia: roleMatches[3].trim()
           }
         }]
