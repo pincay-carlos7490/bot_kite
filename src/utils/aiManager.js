@@ -32,18 +32,19 @@ function getApiKeyPool() {
 
 const toolRoles = {
   name: 'gestionar_roles_avanzado',
-  description: 'Administra cualquier propiedad o permiso de roles en Discord: cambiar permisos, color de rol, renombrar, mover jerarquía/posición, mostrar u ocultar por separado (hoist), permitir mención.',
+  description: 'Administra cualquier propiedad o permiso de roles en Discord: permiso de gestionar roles (ManageRoles), permiso de gestionar canales, administrador, color de rol, renombrar, mover jerarquía/posición, mostrar u ocultar por separado (hoist), permitir mención.',
   parameters: {
     type: Type.OBJECT,
     properties: {
       accion: { type: Type.STRING, description: '"crear", "eliminar", "mover_jerarquia", "editar"' },
-      nombreRol: { type: Type.STRING, description: 'Nombre o mención del rol objetivo.' },
+      nombreRol: { type: Type.STRING, description: 'Nombre o mención del rol objetivo (ej: "@Moderadores").' },
       rolReferencia: { type: Type.STRING, description: 'Rol de referencia para colocación.' },
       posicionRelativa: { type: Type.STRING, description: '"debajo" o "encima"' },
       color: { type: Type.STRING, description: 'Color del rol (ej: "rojo fuerte", "amarillo brillante", "azul", "#FF0000").' },
       nuevoNombre: { type: Type.STRING, description: 'Nuevo nombre para el rol.' },
       separarMiembros: { type: Type.BOOLEAN, description: 'True para mostrar por separado en la lista lateral (Hoist), False para agrupar.' },
-      permitirMencion: { type: Type.BOOLEAN, description: 'True para permitir mención del rol, False para prohibir.' }
+      permitirMencion: { type: Type.BOOLEAN, description: 'True para permitir mención del rol, False para prohibir.' },
+      permisoGestionarRoles: { type: Type.BOOLEAN, description: 'True para otorgar el permiso de Gestionar Roles (ManageRoles) a este rol, False para quitarlo.' }
     },
     required: ['accion', 'nombreRol']
   }
@@ -114,8 +115,8 @@ const toolDinamicaUniversal = {
     properties: {
       entidadObjetivo: { type: Type.STRING, description: '"rol", "canal", "servidor", "miembro"' },
       nombreObjetivo: { type: Type.STRING, description: 'Nombre o mención del objetivo.' },
-      metodoPropiedad: { type: Type.STRING, description: 'Propiedad o acción (ej: "color", "apodo", "hoist", "nombre").' },
-      valor: { type: Type.STRING, description: 'Valor.' }
+      metodoPropiedad: { type: Type.STRING, description: 'Propiedad o acción (ej: "gestionar roles", "color", "apodo", "hoist").' },
+      valor: { type: Type.STRING, description: 'Valor (ej: "true", "false").' }
     },
     required: ['entidadObjetivo', 'nombreObjetivo', 'metodoPropiedad']
   }
@@ -125,7 +126,7 @@ function selectContextualTools(prompt) {
   const p = prompt.toLowerCase();
   const selected = [];
 
-  if (p.includes('rol') || p.includes('roles') || p.includes('color') || p.includes('separado') || p.includes('hoist') || p.includes('jerarquia') || p.includes('permiso')) {
+  if (p.includes('rol') || p.includes('roles') || p.includes('color') || p.includes('separado') || p.includes('hoist') || p.includes('jerarquia') || p.includes('permiso') || p.includes('gestionar roles')) {
     selected.push(toolRoles);
   }
 
@@ -160,10 +161,9 @@ async function processAgenticAI(prompt, username = 'Usuario', guildRoles = [], g
     `ESTADO DEL SERVIDOR EN TIEMPO REAL:\n${guildSummary}\n\n` +
     `REGLAS DE ATENCIÓN Y EJECUCIÓN DIRECTA:\n` +
     `1. NUNCA te presentes de forma mecánica ("Hola, soy KITE...").\n` +
-    `2. PERMISOS DE ROLES: Si el usuario "${username}" te pide que un rol tenga o no tenga permisos (ej: "hace que el rol moderadores si tenga permiso de gestionar roles"), INVOCA OBLIGATORIAMENTE "gestionar_roles_avanzado" con accion: "editar", nombreRol: "moderadores".\n` +
-    `3. NOMBRE DEL SERVIDOR: Si piden cambiar nombre de servidor, INVOCA "gestionar_servidor_general" con tipoAccion: "cambiar_nombre".\n` +
-    `4. APODOS DE USUARIO: Si piden cambiar apodo de usuario, INVOCA "gestionar_miembro_avanzado" con tipoAccion: "apodo".\n` +
-    `5. PROHIBIDO DECIR "NO DISPONGO DE UNA FUNCIÓN". EJECUTA SIEMPRE LA HERRAMIENTA DE FORMA INMEDIATA.`;
+    `2. PERMISO DE GESTIONAR ROLES EN UN ROL: Si el usuario "${username}" te pide que un rol tenga permiso de gestionar roles (ej: "hace que el rol Moderadores si tenga permiso de gestionar roles"), INVOCA OBLIGATORIAMENTE "gestionar_roles_avanzado" con accion: "editar", nombreRol: "Moderadores", permisoGestionarRoles: true.\n` +
+    `3. PROHIBIDO CONFUNDIR PERMISOS DE ROL CON LA OPCIÓN DE MOSTRAR POR SEPARADO (HOIST).\n` +
+    `4. PROHIBIDO DECIR "NO DISPONGO DE UNA FUNCIÓN". EJECUTA SIEMPRE LA HERRAMIENTA DE FORMA INMEDIATA.`;
 
   const promptWithMemory = chatHistory 
     ? `${systemInstruction}\n\nHISTORIAL DE CHAT:\n${chatHistory}\n\n[Mensaje de ${username}]: ${prompt}`
@@ -193,7 +193,6 @@ async function processAgenticAI(prompt, username = 'Usuario', guildRoles = [], g
           return { type: 'chat', text: response.text };
         }
       } catch (err) {
-        // Ignorar 401 si una clave tiene caracteres extraños e intentar la siguiente automáticamente
         const isAuthError = err.message && err.message.includes('401');
         if (!isAuthError) {
           console.log(`[Diagnostic Log] Key (${key.substring(0, 8)}...) - Modelo ${modelName}: ${err.message ? err.message.substring(0, 80) : ''}`);
@@ -207,8 +206,8 @@ async function processAgenticAI(prompt, username = 'Usuario', guildRoles = [], g
   // -------------------------------------------------------------
   const promptLower = prompt.toLowerCase();
 
-  // Permisos o Ajustes de Rol (ej: "hace que el rol moderadores si tenga permiso de gestionar roles")
-  if (promptLower.includes('permiso') || promptLower.includes('permisos') || promptLower.includes('tenga permiso') || promptLower.includes('gestionar roles')) {
+  // Otorgar o Quitar Permisos de Rol (ej: "hace que el rol Moderadores si tenga permiso de gestionar roles")
+  if (promptLower.includes('permiso de gestionar roles') || promptLower.includes('permisos de gestionar roles') || (promptLower.includes('gestionar roles') && promptLower.includes('permiso'))) {
     const roleMatch = prompt.match(/(?:rol\s+@?|el\s+rol\s+@?)([a-záéíóúñ0-9_\-\s]+?)(?:\s+si|\s+no|\s+tenga|\s+con|\s+sin|\s+permiso|$)/i);
     const targetName = roleMatch ? roleMatch[1].trim() : 'moderadores';
     const isDeny = promptLower.includes('no tenga') || promptLower.includes('quitar') || promptLower.includes('prohibir');
@@ -220,7 +219,7 @@ async function processAgenticAI(prompt, username = 'Usuario', guildRoles = [], g
         args: {
           accion: 'editar',
           nombreRol: targetName,
-          separarMiembros: !isDeny
+          permisoGestionarRoles: !isDeny
         }
       }]
     };

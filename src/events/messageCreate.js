@@ -165,7 +165,7 @@ module.exports = {
             }
           }
 
-          // 0. GESTIONAR ROLES AVANZADO (CAMBIAR COLOR, RENOMBRAR, MOVER JERARQUÍA, SEPARAR MIEMBROS - HOIST)
+          // 0. GESTIONAR ROLES AVANZADO (PERMISOS DE ROL, CAMBIAR COLOR, RENOMBRAR, MOVER JERARQUÍA, SEPARAR MIEMBROS - HOIST)
           if (name === 'gestionar_roles_avanzado') {
             if (!message.member.permissions.has(PermissionFlagsBits.ManageRoles) &&
                 !message.member.permissions.has(PermissionFlagsBits.Administrator)) {
@@ -178,6 +178,31 @@ module.exports = {
 
             if (resTarget.status === 'found') {
               const targetRole = resTarget.role;
+
+              // Otorgar o quitar Permiso de Gestionar Roles (ManageRoles)
+              if (typeof args.permisoGestionarRoles === 'boolean') {
+                try {
+                  let newPermissions = targetRole.permissions;
+                  if (args.permisoGestionarRoles) {
+                    newPermissions = newPermissions.add(PermissionFlagsBits.ManageRoles);
+                  } else {
+                    newPermissions = newPermissions.remove(PermissionFlagsBits.ManageRoles);
+                  }
+
+                  await targetRole.setPermissions(newPermissions, `Por orden de ${message.author.tag}`);
+                  const embed = new EmbedBuilder()
+                    .setColor(targetRole.color || '#57F287')
+                    .setTitle('🛡️ Permiso de Rol Actualizado')
+                    .setDescription(`El rol **${targetRole.name}** (${targetRole}) ahora ${args.permisoGestionarRoles ? '**SÍ tiene**' : '**NO tiene**'} el permiso de **Gestionar Roles** (\`ManageRoles\`).`)
+                    .addFields({ name: '🛡️ Moderador', value: `${message.author}` })
+                    .setTimestamp();
+                  await message.channel.send({ embeds: [embed] });
+                  continue;
+                } catch (err) {
+                  await message.reply('❌ No pude modificar los permisos de ese rol. Asegúrate de que el rol de KITE en Discord esté por encima de este rol.');
+                  continue;
+                }
+              }
 
               // Cambiar color del rol
               if (args.color) {
