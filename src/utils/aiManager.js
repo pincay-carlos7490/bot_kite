@@ -38,15 +38,15 @@ function getApiKeyPool() {
 
 const toolRoles = {
   name: 'gestionar_roles_avanzado',
-  description: 'Administra cualquier propiedad de roles en Discord. Cambiar color de rol (rojo fuerte, amarillo brillante, azul, verde, etc.), cambiar apodo, cambiar nombre de rol, mover jerarquía/posición, mostrar u ocultar por separado (hoist), permitir mención.',
+  description: 'Administra propiedades de roles en Discord: color de rol, cambiar nombre de rol, mover jerarquía/posición, mostrar u ocultar por separado (hoist), permitir mención.',
   parameters: {
     type: Type.OBJECT,
     properties: {
       accion: { type: Type.STRING, description: '"crear", "eliminar", "mover_jerarquia", "editar"' },
-      nombreRol: { type: Type.STRING, description: 'Nombre o mención del rol objetivo (ej: "@Moderadores").' },
+      nombreRol: { type: Type.STRING, description: 'Nombre o mención del rol objetivo.' },
       rolReferencia: { type: Type.STRING, description: 'Rol de referencia para colocación.' },
       posicionRelativa: { type: Type.STRING, description: '"debajo" o "encima"' },
-      color: { type: Type.STRING, description: 'Color del rol (ej: "rojo fuerte", "amarillo brillante", "azul", "verde", "dorado", "#FF0000").' },
+      color: { type: Type.STRING, description: 'Color del rol (ej: "rojo fuerte", "amarillo brillante", "azul", "#FF0000").' },
       nuevoNombre: { type: Type.STRING, description: 'Nuevo nombre para el rol.' },
       separarMiembros: { type: Type.BOOLEAN, description: 'True para mostrar por separado en la lista lateral (Hoist), False para agrupar.' }
     },
@@ -61,10 +61,23 @@ const toolMiembros = {
     type: Type.OBJECT,
     properties: {
       tipoAccion: { type: Type.STRING, description: '"apodo", "mute_voz", "unmute_voz", "timeout"' },
-      usuario: { type: Type.STRING, description: 'Nombre, mención o ID del usuario (ej: "@Emily L" o "@emily demuteate").' },
-      valor: { type: Type.STRING, description: 'Nuevo apodo a asignar al usuario (ej: "Traicionera").' }
+      usuario: { type: Type.STRING, description: 'Nombre, mención o ID del usuario.' },
+      valor: { type: Type.STRING, description: 'Nuevo apodo a asignar al usuario.' }
     },
     required: ['tipoAccion', 'usuario']
+  }
+};
+
+const toolServidor = {
+  name: 'gestionar_servidor_general',
+  description: 'Servidor: cambiar nombre del servidor, cambiar foto/icono del servidor, banner, emojis, invitaciones, eventos.',
+  parameters: {
+    type: Type.OBJECT,
+    properties: {
+      tipoAccion: { type: Type.STRING, description: '"cambiar_icono", "cambiar_nombre", "crear_emoji"' },
+      valor: { type: Type.STRING, description: 'Nuevo nombre del servidor o URL de imagen.' }
+    },
+    required: ['tipoAccion']
   }
 };
 
@@ -98,19 +111,6 @@ const toolCanales = {
   }
 };
 
-const toolServidor = {
-  name: 'gestionar_servidor_general',
-  description: 'Servidor: foto/icono, nombre, banner, emojis, invitaciones, eventos.',
-  parameters: {
-    type: Type.OBJECT,
-    properties: {
-      tipoAccion: { type: Type.STRING, description: '"cambiar_icono", "cambiar_nombre", "crear_emoji"' },
-      valor: { type: Type.STRING, description: 'URL o nombre.' }
-    },
-    required: ['tipoAccion']
-  }
-};
-
 const toolDinamicaUniversal = {
   name: 'ejecutar_metodo_discord_dinamico',
   description: 'HERRAMIENTA DINÁMICA DE RESPALDO PARA CUALQUIER PROPIEDAD O CAMBIO EN DISCORD.',
@@ -119,7 +119,7 @@ const toolDinamicaUniversal = {
     properties: {
       entidadObjetivo: { type: Type.STRING, description: '"rol", "canal", "servidor", "miembro"' },
       nombreObjetivo: { type: Type.STRING, description: 'Nombre o mención del objetivo.' },
-      metodoPropiedad: { type: Type.STRING, description: 'Propiedad o acción (ej: "color", "apodo", "hoist").' },
+      metodoPropiedad: { type: Type.STRING, description: 'Propiedad o acción (ej: "color", "apodo", "hoist", "nombre").' },
       valor: { type: Type.STRING, description: 'Valor.' }
     },
     required: ['entidadObjetivo', 'nombreObjetivo', 'metodoPropiedad']
@@ -129,6 +129,10 @@ const toolDinamicaUniversal = {
 function selectContextualTools(prompt) {
   const p = prompt.toLowerCase();
   const selected = [];
+
+  if (p.includes('servidor') || p.includes('server') || p.includes('foto') || p.includes('icono') || p.includes('nombre del servidor')) {
+    selected.push(toolServidor);
+  }
 
   if (p.includes('rol') || p.includes('roles') || p.includes('color') || p.includes('separado') || p.includes('hoist') || p.includes('jerarquia')) {
     selected.push(toolRoles);
@@ -142,12 +146,8 @@ function selectContextualTools(prompt) {
     selected.push(toolPermisos, toolCanales);
   }
 
-  if (p.includes('servidor') || p.includes('foto') || p.includes('icono')) {
-    selected.push(toolServidor);
-  }
-
   if (selected.length === 0) {
-    selected.push(toolRoles, toolMiembros, toolPermisos, toolCanales, toolServidor);
+    selected.push(toolServidor, toolRoles, toolMiembros, toolPermisos, toolCanales);
   }
 
   selected.push(toolDinamicaUniversal);
@@ -165,15 +165,15 @@ async function processAgenticAI(prompt, username = 'Usuario', guildRoles = [], g
     `ESTADO DEL SERVIDOR EN TIEMPO REAL:\n${guildSummary}\n\n` +
     `REGLAS DE ATENCIÓN Y EJECUCIÓN DIRECTA:\n` +
     `1. NUNCA te presentes de forma mecánica ("Hola, soy KITE...").\n` +
-    `2. APODOS DE USUARIO: Si el usuario "${username}" te pide cambiar el nombre/apodo de un usuario (ej: "cambia el nombre del usuario @Emily L a Traicionera"), INVOCA OBLIGATORIAMENTE "gestionar_miembro_avanzado" con tipoAccion: "apodo", usuario: "@Emily L", valor: "Traicionera".\n` +
-    `3. COLORES DE ROL: Si piden cambiar el color de un rol (ej: "cambia el color del rol @Moderadores a rojo fuerte"), INVOCA "gestionar_roles_avanzado" con accion: "editar", nombreRol: "@Moderadores", color: "rojo fuerte".\n` +
-    `4. PROHIBIDO DECIR "NO DISPONGO DE UNA FUNCIÓN". EJECUTA SIEMPRE LA HERRAMIENTA CORRESPONDIENTE DE FORMA INMEDIATA.`;
+    `2. NOMBRE DEL SERVIDOR: Si el usuario "${username}" te pide cambiar el nombre del servidor (ej: "cambia el nombre del servidor por Kite"), INVOCA OBLIGATORIAMENTE "gestionar_servidor_general" con tipoAccion: "cambiar_nombre", valor: "Kite".\n` +
+    `3. APODOS DE USUARIO: Si piden cambiar el nombre de un usuario (ej: "@Emily L"), INVOCA "gestionar_miembro_avanzado" con tipoAccion: "apodo", usuario: "@Emily L", valor: "Traicionera".\n` +
+    `4. COLORES DE ROL: Si piden cambiar color de rol, INVOCA "gestionar_roles_avanzado" con accion: "editar", color: el color.\n` +
+    `5. PROHIBIDO DECIR "NO DISPONGO DE UNA FUNCIÓN". EJECUTA SIEMPRE LA HERRAMIENTA DE FORMA INMEDIATA.`;
 
   const promptWithMemory = chatHistory 
     ? `${systemInstruction}\n\nHISTORIAL DE CHAT:\n${chatHistory}\n\n[Mensaje de ${username}]: ${prompt}`
     : `${systemInstruction}\n\n[Mensaje de ${username}]: ${prompt}`;
 
-  // Modelos oficiales compatibles en la SDK @google/genai
   const modelsToTry = [
     'gemini-2.5-flash',
     'gemini-2.0-flash'
@@ -204,9 +204,26 @@ async function processAgenticAI(prompt, username = 'Usuario', guildRoles = [], g
   }
 
   // -------------------------------------------------------------
-  // MOTOR DE RESPALDO ULTRA-SEMÁNTICO INFALIBLE
+  // MOTOR DE RESPALDO ULTRA-SEMÁNTICO INFALIBLE (FUNCIONA AÚN SI SE ACABA EL CUOTA 429)
   // -------------------------------------------------------------
   const promptLower = prompt.toLowerCase();
+
+  // Cambiar Nombre del Servidor (ej: "cambia el nombre del servidor por Kite")
+  if (promptLower.includes('nombre del servidor') || promptLower.includes('nombre de servidor') || promptLower.includes('servidor por') || promptLower.includes('servidor a')) {
+    const nameMatch = prompt.match(/(?:nombre\s+del?\s+servidor\s+(?:por|a)\s+|servidor\s+(?:por|a)\s+)([a-záéíóúñ0-9_\-\s]+)/i);
+    const newName = nameMatch ? nameMatch[1].trim() : 'Kite';
+
+    return {
+      type: 'tools',
+      functionCalls: [{
+        name: 'gestionar_servidor_general',
+        args: {
+          tipoAccion: 'cambiar_nombre',
+          valor: newName
+        }
+      }]
+    };
+  }
 
   // Cambiar Apodo de Usuario (ej: "cambia el nombre del usuario @Emily L a Traicionera")
   if (promptLower.includes('nombre del usuario') || promptLower.includes('apodo') || promptLower.includes('nickname')) {
