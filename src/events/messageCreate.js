@@ -80,6 +80,32 @@ module.exports = {
           const name = fn.name;
           const args = fn.args || {};
 
+          // 0. HERRAMIENTA DINÁMICA DE RESPALDO UNIVERSAL (CATCH-ALL)
+          if (name === 'ejecutar_metodo_discord_dinamico') {
+            const entity = (args.entidadObjetivo || '').toLowerCase();
+            const prop = (args.metodoPropiedad || '').toLowerCase();
+            const valStr = String(args.valor || '').toLowerCase();
+
+            if (entity.includes('rol') || prop.includes('hoist') || prop.includes('separado')) {
+              const resTarget = findRoleInGuild(args.nombreObjetivo, message.guild, message.mentions);
+              if (resTarget.status === 'found') {
+                const r = resTarget.role;
+                const isFalse = valStr.includes('false') || cleanPrompt.toLowerCase().includes('no ');
+                try {
+                  await r.setHoist(!isFalse);
+                  const embed = new EmbedBuilder()
+                    .setColor(r.color || '#57F287')
+                    .setTitle('🎭 Configuración de Rol Actualizada (Dinámica)')
+                    .setDescription(`El rol **${r.name}** (${r}) ahora ${!isFalse ? '**se muestra por separado**' : '**NO se muestra por separado**'}.`)
+                    .addFields({ name: '🛡️ Moderador', value: `${message.author}` })
+                    .setTimestamp();
+                  await message.channel.send({ embeds: [embed] });
+                  continue;
+                } catch (e) {}
+              }
+            }
+          }
+
           // 0. GESTIONAR ROLES AVANZADO (RENOMBRAR, MOVER JERARQUÍA, SEPARAR MIEMBROS - HOIST)
           if (name === 'gestionar_roles_avanzado') {
             if (!message.member.permissions.has(PermissionFlagsBits.ManageRoles) &&
@@ -163,6 +189,40 @@ module.exports = {
               await message.reply(`⚠️ No se encontró el rol **"${roleName}"** en este servidor.`);
               continue;
             }
+          }
+
+          // 0. GESTIONAR CANAL AVANZADO
+          if (name === 'gestionar_canal_avanzado') {
+            if (!message.member.permissions.has(PermissionFlagsBits.ManageChannels) &&
+                !message.member.permissions.has(PermissionFlagsBits.Administrator)) {
+              await message.reply('❌ No tienes permiso de **Gestionar Canales** para ejecutar esta acción.');
+              continue;
+            }
+
+            const chanName = args.nombreCanal;
+            const targetChan = message.guild.channels.cache.find(c => c.name.toLowerCase() === (chanName || '').toLowerCase()) || message.channel;
+
+            if (args.nuevoNombre) {
+              await targetChan.setName(args.nuevoNombre).catch(() => null);
+            }
+            if (args.topic) {
+              await targetChan.setTopic(args.topic).catch(() => null);
+            }
+            if (typeof args.nsfw === 'boolean') {
+              await targetChan.setNSFW(args.nsfw).catch(() => null);
+            }
+            if (typeof args.modoPausadoSegundos === 'number') {
+              await targetChan.setRateLimitPerUser(args.modoPausadoSegundos).catch(() => null);
+            }
+
+            const embed = new EmbedBuilder()
+              .setColor('#3498DB')
+              .setTitle('⚙️ Configuración de Canal Actualizada')
+              .setDescription(`Se han actualizado las propiedades del canal **${targetChan}**.`)
+              .addFields({ name: '🛡️ Moderador', value: `${message.author}` })
+              .setTimestamp();
+            await message.channel.send({ embeds: [embed] });
+            continue;
           }
 
           // 0. GESTIONAR SERVIDOR GENERAL (FOTO DE PERFIL DE SERVIDOR, NOMBRE, EMOJIS)
