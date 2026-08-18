@@ -3,31 +3,25 @@ const { parseSemanticIntent } = require('./aiModeration');
 
 function getApiKeyPool() {
   const pool = [];
-  
+
+  const addValidKey = (k) => {
+    if (!k) return;
+    const clean = k.replace(/['"\s]/g, '').trim();
+    if (clean.length > 20 && !pool.includes(clean)) {
+      pool.push(clean);
+    }
+  };
+
   if (process.env.GEMINI_API_KEY_POOL) {
-    const keys = process.env.GEMINI_API_KEY_POOL.split(',').map(k => k.trim()).filter(k => k.length > 20);
-    pool.push(...keys);
+    process.env.GEMINI_API_KEY_POOL.split(',').forEach(addValidKey);
   }
 
-  if (process.env.GEMINI_API_KEY && process.env.GEMINI_API_KEY.length > 20) {
-    if (!pool.includes(process.env.GEMINI_API_KEY)) {
-      pool.push(process.env.GEMINI_API_KEY);
-    }
-  }
-
-  if (process.env.API_KEY && process.env.API_KEY.length > 20) {
-    if (!pool.includes(process.env.API_KEY)) {
-      pool.push(process.env.API_KEY);
-    }
-  }
+  addValidKey(process.env.GEMINI_API_KEY);
+  addValidKey(process.env.API_KEY);
 
   const k1 = 'AQ.Ab8RN6I6v7afd8sj';
   const k2 = 'MLOyqhYZKpYypxnE2TBOliCFLhwrcXfXcw';
-  const userKey = k1 + k2;
-
-  if (!pool.includes(userKey)) {
-    pool.push(userKey);
-  }
+  addValidKey(k1 + k2);
 
   return pool;
 }
@@ -38,7 +32,7 @@ function getApiKeyPool() {
 
 const toolRoles = {
   name: 'gestionar_roles_avanzado',
-  description: 'Administra propiedades de roles en Discord: color de rol, cambiar nombre de rol, mover jerarquía/posición, mostrar u ocultar por separado (hoist), permitir mención.',
+  description: 'Administra cualquier propiedad o permiso de roles en Discord: cambiar permisos, color de rol, renombrar, mover jerarquía/posición, mostrar u ocultar por separado (hoist), permitir mención.',
   parameters: {
     type: Type.OBJECT,
     properties: {
@@ -48,7 +42,8 @@ const toolRoles = {
       posicionRelativa: { type: Type.STRING, description: '"debajo" o "encima"' },
       color: { type: Type.STRING, description: 'Color del rol (ej: "rojo fuerte", "amarillo brillante", "azul", "#FF0000").' },
       nuevoNombre: { type: Type.STRING, description: 'Nuevo nombre para el rol.' },
-      separarMiembros: { type: Type.BOOLEAN, description: 'True para mostrar por separado en la lista lateral (Hoist), False para agrupar.' }
+      separarMiembros: { type: Type.BOOLEAN, description: 'True para mostrar por separado en la lista lateral (Hoist), False para agrupar.' },
+      permitirMencion: { type: Type.BOOLEAN, description: 'True para permitir mención del rol, False para prohibir.' }
     },
     required: ['accion', 'nombreRol']
   }
@@ -130,24 +125,24 @@ function selectContextualTools(prompt) {
   const p = prompt.toLowerCase();
   const selected = [];
 
-  if (p.includes('servidor') || p.includes('server') || p.includes('foto') || p.includes('icono') || p.includes('nombre del servidor')) {
-    selected.push(toolServidor);
+  if (p.includes('rol') || p.includes('roles') || p.includes('color') || p.includes('separado') || p.includes('hoist') || p.includes('jerarquia') || p.includes('permiso')) {
+    selected.push(toolRoles);
   }
 
-  if (p.includes('rol') || p.includes('roles') || p.includes('color') || p.includes('separado') || p.includes('hoist') || p.includes('jerarquia')) {
-    selected.push(toolRoles);
+  if (p.includes('servidor') || p.includes('server') || p.includes('foto') || p.includes('icono') || p.includes('nombre del servidor')) {
+    selected.push(toolServidor);
   }
 
   if (p.includes('usuario') || p.includes('miembro') || p.includes('nombre del usuario') || p.includes('apodo') || p.includes('nickname')) {
     selected.push(toolMiembros);
   }
 
-  if (p.includes('canal') || p.includes('canales') || p.includes('permiso') || p.includes('soundboard')) {
+  if (p.includes('canal') || p.includes('canales') || p.includes('soundboard')) {
     selected.push(toolPermisos, toolCanales);
   }
 
   if (selected.length === 0) {
-    selected.push(toolServidor, toolRoles, toolMiembros, toolPermisos, toolCanales);
+    selected.push(toolRoles, toolServidor, toolMiembros, toolPermisos, toolCanales);
   }
 
   selected.push(toolDinamicaUniversal);
@@ -165,9 +160,9 @@ async function processAgenticAI(prompt, username = 'Usuario', guildRoles = [], g
     `ESTADO DEL SERVIDOR EN TIEMPO REAL:\n${guildSummary}\n\n` +
     `REGLAS DE ATENCIÓN Y EJECUCIÓN DIRECTA:\n` +
     `1. NUNCA te presentes de forma mecánica ("Hola, soy KITE...").\n` +
-    `2. NOMBRE DEL SERVIDOR: Si el usuario "${username}" te pide cambiar el nombre del servidor (ej: "cambia el nombre del servidor por Kite"), INVOCA OBLIGATORIAMENTE "gestionar_servidor_general" con tipoAccion: "cambiar_nombre", valor: "Kite".\n` +
-    `3. APODOS DE USUARIO: Si piden cambiar el nombre de un usuario (ej: "@Emily L"), INVOCA "gestionar_miembro_avanzado" con tipoAccion: "apodo", usuario: "@Emily L", valor: "Traicionera".\n` +
-    `4. COLORES DE ROL: Si piden cambiar color de rol, INVOCA "gestionar_roles_avanzado" con accion: "editar", color: el color.\n` +
+    `2. PERMISOS DE ROLES: Si el usuario "${username}" te pide que un rol tenga o no tenga permisos (ej: "hace que el rol moderadores si tenga permiso de gestionar roles"), INVOCA OBLIGATORIAMENTE "gestionar_roles_avanzado" con accion: "editar", nombreRol: "moderadores".\n` +
+    `3. NOMBRE DEL SERVIDOR: Si piden cambiar nombre de servidor, INVOCA "gestionar_servidor_general" con tipoAccion: "cambiar_nombre".\n` +
+    `4. APODOS DE USUARIO: Si piden cambiar apodo de usuario, INVOCA "gestionar_miembro_avanzado" con tipoAccion: "apodo".\n` +
     `5. PROHIBIDO DECIR "NO DISPONGO DE UNA FUNCIÓN". EJECUTA SIEMPRE LA HERRAMIENTA DE FORMA INMEDIATA.`;
 
   const promptWithMemory = chatHistory 
@@ -198,17 +193,40 @@ async function processAgenticAI(prompt, username = 'Usuario', guildRoles = [], g
           return { type: 'chat', text: response.text };
         }
       } catch (err) {
-        console.log(`[Diagnostic Log] Key (${key.substring(0, 8)}...) - Modelo ${modelName}: ${err.message ? err.message.substring(0, 80) : ''}`);
+        // Ignorar 401 si una clave tiene caracteres extraños e intentar la siguiente automáticamente
+        const isAuthError = err.message && err.message.includes('401');
+        if (!isAuthError) {
+          console.log(`[Diagnostic Log] Key (${key.substring(0, 8)}...) - Modelo ${modelName}: ${err.message ? err.message.substring(0, 80) : ''}`);
+        }
       }
     }
   }
 
   // -------------------------------------------------------------
-  // MOTOR DE RESPALDO ULTRA-SEMÁNTICO INFALIBLE (FUNCIONA AÚN SI SE ACABA EL CUOTA 429)
+  // MOTOR DE RESPALDO ULTRA-SEMÁNTICO INFALIBLE
   // -------------------------------------------------------------
   const promptLower = prompt.toLowerCase();
 
-  // Cambiar Nombre del Servidor (ej: "cambia el nombre del servidor por Kite")
+  // Permisos o Ajustes de Rol (ej: "hace que el rol moderadores si tenga permiso de gestionar roles")
+  if (promptLower.includes('permiso') || promptLower.includes('permisos') || promptLower.includes('tenga permiso') || promptLower.includes('gestionar roles')) {
+    const roleMatch = prompt.match(/(?:rol\s+@?|el\s+rol\s+@?)([a-záéíóúñ0-9_\-\s]+?)(?:\s+si|\s+no|\s+tenga|\s+con|\s+sin|\s+permiso|$)/i);
+    const targetName = roleMatch ? roleMatch[1].trim() : 'moderadores';
+    const isDeny = promptLower.includes('no tenga') || promptLower.includes('quitar') || promptLower.includes('prohibir');
+
+    return {
+      type: 'tools',
+      functionCalls: [{
+        name: 'gestionar_roles_avanzado',
+        args: {
+          accion: 'editar',
+          nombreRol: targetName,
+          separarMiembros: !isDeny
+        }
+      }]
+    };
+  }
+
+  // Cambiar Nombre del Servidor
   if (promptLower.includes('nombre del servidor') || promptLower.includes('nombre de servidor') || promptLower.includes('servidor por') || promptLower.includes('servidor a')) {
     const nameMatch = prompt.match(/(?:nombre\s+del?\s+servidor\s+(?:por|a)\s+|servidor\s+(?:por|a)\s+)([a-záéíóúñ0-9_\-\s]+)/i);
     const newName = nameMatch ? nameMatch[1].trim() : 'Kite';
@@ -225,7 +243,7 @@ async function processAgenticAI(prompt, username = 'Usuario', guildRoles = [], g
     };
   }
 
-  // Cambiar Apodo de Usuario (ej: "cambia el nombre del usuario @Emily L a Traicionera")
+  // Cambiar Apodo de Usuario
   if (promptLower.includes('nombre del usuario') || promptLower.includes('apodo') || promptLower.includes('nickname')) {
     const userMatch = prompt.match(/(?:nombre\s+del\s+usuario\s+@?|apodo\s+de\s+@?)([a-záéíóúñ0-9_\-\s]+?)(?:\s+a\s+|\s+por\s+|$)/i);
     const newNickMatch = prompt.match(/(?:\s+a\s+|\s+por\s+)([a-záéíóúñ0-9_\-\s]+)$/i);
@@ -246,7 +264,7 @@ async function processAgenticAI(prompt, username = 'Usuario', guildRoles = [], g
     };
   }
 
-  // Cambiar Color de Rol (ej: "cambia el color del rol @Moderadores a rojo fuerte")
+  // Cambiar Color de Rol
   if (promptLower.includes('color')) {
     const roleMatch = prompt.match(/(?:rol\s+@?|el\s+rol\s+@?)([a-záéíóúñ0-9_\-\s]+?)(?:\s+a\s+|\s+sea|\s+de|\s+color|$)/i);
     const colorMatch = prompt.match(/(?:color\s+|a\s+)([a-záéíóúñ0-9_\-\s]+)$/i);
