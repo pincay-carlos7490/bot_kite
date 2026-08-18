@@ -38,6 +38,22 @@ async function processAgenticAI(prompt, username = 'Usuario', guildRoles = [], g
   const tools = [{
     functionDeclarations: [
       {
+        name: 'gestionar_roles_avanzado',
+        description: 'Crea, elimina o modifica cualquier rol del servidor: mover posición/jerarquía (mover un rol por encima o por debajo de otro rol), cambiar color, renombrar, separar lista de miembros (hoist), permitir mención, etc.',
+        parameters: {
+          type: Type.OBJECT,
+          properties: {
+            accion: { type: Type.STRING, description: '"crear", "eliminar", "mover_jerarquia", "editar"' },
+            nombreRol: { type: Type.STRING, description: 'Nombre o mención del rol a modificar (ej: "@Bot Moderador" o "Bot Moderador").' },
+            rolReferencia: { type: Type.STRING, description: 'Nombre del rol de referencia para colocarlo por encima o por debajo (ej: "Bots").' },
+            posicionRelativa: { type: Type.STRING, description: '"debajo" o "encima"' },
+            color: { type: Type.STRING, description: 'Color del rol.' },
+            nuevoNombre: { type: Type.STRING, description: 'Nuevo nombre para el rol.' }
+          },
+          required: ['accion', 'nombreRol']
+        }
+      },
+      {
         name: 'configurar_permisos_canal',
         description: 'Modifica de forma AGÉNTICA Y UNIVERSAL cualquier permiso de canal en Discord (Usar panel de sonidos / soundboard, sonidos externos, transmitir en vivo, hablar, conectar, crear encuestas, escribir, hilos públicos, hilos privados, ver canal, imágenes, reacciones, emojis externos, menciones, borrar mensajes, crear invitaciones, etc.) para cualquier rol o @everyone.',
         parameters: {
@@ -94,17 +110,13 @@ async function processAgenticAI(prompt, username = 'Usuario', guildRoles = [], g
       },
       {
         name: 'crear_eliminar_rol',
-        description: 'Crea un nuevo rol en el servidor (opcionalmente configurando sus permisos globales de ver canales, escribir, ver historial y voz) o elimina un rol existente.',
+        description: 'Crea un nuevo rol en el servidor o elimina un rol existente.',
         parameters: {
           type: Type.OBJECT,
           properties: {
             accion: { type: Type.STRING, description: '"crear" o "eliminar"' },
             nombreRol: { type: Type.STRING, description: 'Nombre del rol.' },
-            color: { type: Type.STRING, description: 'Color del rol (ej: "gris", "azul", "rojo", "dorado", "#808080").' },
-            permitirVerCanales: { type: Type.BOOLEAN, description: 'True para permitir ver canales, False para denegar.' },
-            permitirEscribir: { type: Type.BOOLEAN, description: 'True para permitir escribir mensajes, False para prohibir (Rojo ❌).' },
-            permitirVerHistorial: { type: Type.BOOLEAN, description: 'True para permitir ver historial, False para prohibir.' },
-            permitirVoz: { type: Type.BOOLEAN, description: 'True para permitir unirse a voz, False para prohibir unirse a voz (Rojo ❌).' }
+            color: { type: Type.STRING, description: 'Color del rol (ej: "gris", "azul", "rojo", "dorado", "#808080").' }
           },
           required: ['accion', 'nombreRol']
         }
@@ -249,15 +261,10 @@ async function processAgenticAI(prompt, username = 'Usuario', guildRoles = [], g
   const systemInstruction = 
     `Tu nombre es KITE. Eres el AGENTE AUTÓNOMO CON CONOCIMIENTO Y CONTROL TOTAL DE DISCORD.\n` +
     `ESTADO COMPLETO DEL SERVIDOR EN TIEMPO REAL:\n${guildSummary}\n\n` +
-    `ERES UN AGENTE ADMINISTRADOR TOTAL (TODAS LAS HERRAMIENTAS DE DISCORD DISPONIBLES):\n` +
+    `REGLAS ESTRUCTURALES Y JERARQUÍA:\n` +
     `1. NUNCA te presentes de forma mecánica (PROHIBIDO decir "Hola, soy KITE...").\n` +
-    `2. POSEES EL CONOCIMIENTO Y CONEXIÓN CON TODAS LAS CAPACIDADES DE DISCORD:\n` +
-    `   - Permisos de Voz y Canales: Usar panel de sonidos (soundboard), sonidos externos, transmitir en vivo / compartir pantalla, hablar, conectar.\n` +
-    `   - Permisos de Texto: Crear encuestas, hilos públicos, hilos privados, mensajes en hilos, imágenes, reacciones, emojis externos, borrar mensajes, ver canal, historial.\n` +
-    `   - Administración del Servidor: Cambiar foto/icono del servidor, cambiar nombre del servidor, crear emojis, crear eventos, crear invitaciones.\n` +
-    `   - Control de Miembros y Roles: Cambiar apodos, silenciar en voz, banear, desbanear, crear/eliminar roles sin duplicados.\n` +
-    `   - Música en Voz: Reproducir música, saltar canciones, desconectar.\n` +
-    `3. Si el usuario "${username}" te pide modificar CUALQUIER opción, INVOCA LA HERRAMIENTA CORRESPONDIENTE DE FORMA INMEDIATA.\n` +
+    `2. NUNCA le digas al usuario que haga las cosas manualmente en Ajustes del Servidor. EJECUTA LA ACCIÓN TÚ MISMO USANDO LAS HERRAMIENTAS.\n` +
+    `3. JERARQUÍA Y POSICIÓN DE ROLES: Si el usuario "${username}" te pide mover la jerarquía/posición de un rol (ejemplo: "quiero que el rol Bot Moderador este debajo del rol Bots"), INVOCA "gestionar_roles_avanzado" con accion: "mover_jerarquia", nombreRol: "Bot Moderador", rolReferencia: "Bots", posicionRelativa: "debajo".\n` +
     `4. REGLA DE NO DUPLICACIÓN: Si lees en el HISTORIAL que ya se creó un rol o canal, actualiza sus permisos sin duplicarlo.`;
 
   const promptWithMemory = chatHistory 
@@ -301,54 +308,22 @@ async function processAgenticAI(prompt, username = 'Usuario', guildRoles = [], g
   // -------------------------------------------------------------
   const promptLower = prompt.toLowerCase();
 
-  if (promptLower.includes('soundboard') || promptLower.includes('panel de sonidos') || promptLower.includes('panel de sonido') || promptLower.includes('sonidos')) {
-    let chanMatch = prompt.match(/#([a-záéíóúñ0-9_\-]+)/i) || prompt.match(/canal\s+de\s+voz\s+de\s+([a-záéíóúñ0-9_\-]+)/i) || prompt.match(/canal\s+de\s+([a-záéíóúñ0-9_\-]+)/i) || prompt.match(/canal\s+([a-záéíóúñ0-9_\-]+)/i);
-    let targetChan = chanMatch ? chanMatch[1] : null;
-
-    let rolesObj = 'everyone';
-    if (promptLower.includes('sobreviviente')) rolesObj = 'sobrevivientes';
-    else if (promptLower.includes('mod')) rolesObj = 'moderadores';
-    else if (promptLower.includes('bot')) rolesObj = 'bots';
-    else if (promptLower.includes('mute')) rolesObj = 'mute';
-
-    const isDeny = promptLower.includes('no pueda') || promptLower.includes('no puedan') || promptLower.includes('quítale') || promptLower.includes('quitale') || promptLower.includes('prohib');
-
-    return {
-      type: 'tools',
-      functionCalls: [{
-        name: 'configurar_permisos_canal',
-        args: {
-          nombreCanal: targetChan || 'actual',
-          rolesObjetivo: rolesObj,
-          permitirUsarPanelDeSonidos: !isDeny
-        }
-      }]
-    };
-  }
-
-  if (promptLower.includes('ver los canales') || promptLower.includes('ver el canal') || promptLower.includes('ver canales') || promptLower.includes('ver canal')) {
-    let chanMatch = prompt.match(/#([a-záéíóúñ0-9_\-]+)/i) || prompt.match(/canal\s+de\s+([a-záéíóúñ0-9_\-]+)/i) || prompt.match(/canal\s+([a-záéíóúñ0-9_\-]+)/i);
-    let targetChan = chanMatch ? chanMatch[1] : null;
-
-    let rolesObj = 'everyone';
-    if (promptLower.includes('sobreviviente')) rolesObj = 'sobrevivientes';
-    else if (promptLower.includes('mod')) rolesObj = 'moderadores';
-    else if (promptLower.includes('bot')) rolesObj = 'bots';
-    else if (promptLower.includes('mute')) rolesObj = 'mute';
-
-    const isDeny = promptLower.includes('no pueda') || promptLower.includes('no puedan') || promptLower.includes('quítale') || promptLower.includes('quitale') || promptLower.includes('prohib');
-
-    return {
-      type: 'tools',
-      functionCalls: [{
-        name: 'configurar_permisos_canal',
-        args: {
-          nombreCanal: targetChan || 'actual',
-          rolesObjetivo: rolesObj,
-          permitirVer: !isDeny
-        }
-      }]
-    };
+  if (promptLower.includes('debajo del rol') || promptLower.includes('encima del rol') || promptLower.includes('debajo de') || promptLower.includes('encima de')) {
+    const roleMatches = prompt.match(/rol\s+de?\s*@?([a-záéíóúñ0-9_\-\s]+)\s+(debajo|encima)\s+del?\s*rol\s+@?([a-záéíóúñ0-9_\-\s]+)/i);
+    if (roleMatches) {
+      return {
+        type: 'tools',
+        functionCalls: [{
+          name: 'gestionar_roles_avanzado',
+          args: {
+            accion: 'mover_jerarquia',
+            nombreRol: roleMatches[1].trim(),
+            posicionRelativa: roleMatches[2].toLowerCase(),
+            rolReferencia: roleMatches[3].trim()
+          }
+        }]
+      };
+    }
   }
 
   const semantic = parseSemanticIntent(prompt, guildRoles);

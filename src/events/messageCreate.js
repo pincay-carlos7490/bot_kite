@@ -80,6 +80,53 @@ module.exports = {
           const name = fn.name;
           const args = fn.args || {};
 
+          // 0. GESTIONAR ROLES AVANZADO (MOVER JERARQUÍA / POSICIÓN EN EL SERVIDOR)
+          if (name === 'gestionar_roles_avanzado') {
+            if (!message.member.permissions.has(PermissionFlagsBits.ManageRoles) &&
+                !message.member.permissions.has(PermissionFlagsBits.Administrator)) {
+              await message.reply('❌ No tienes permiso de **Gestionar Roles** para ejecutar esta acción.');
+              continue;
+            }
+
+            const action = (args.accion || 'editar').toLowerCase();
+            const roleName = args.nombreRol;
+
+            if (action === 'mover_jerarquia' || args.rolReferencia || args.posicionRelativa) {
+              const resTarget = findRoleInGuild(roleName, message.guild, message.mentions);
+              const resRef = findRoleInGuild(args.rolReferencia, message.guild, message.mentions);
+
+              if (resTarget.status === 'found' && resRef.status === 'found') {
+                const targetRole = resTarget.role;
+                const refRole = resRef.role;
+
+                let newPos = refRole.position;
+                if ((args.posicionRelativa || '').toLowerCase() === 'debajo') {
+                  newPos = Math.max(refRole.position - 1, 1);
+                } else if ((args.posicionRelativa || '').toLowerCase() === 'encima') {
+                  newPos = refRole.position + 1;
+                }
+
+                try {
+                  await targetRole.setPosition(newPos);
+                  const embed = new EmbedBuilder()
+                    .setColor('#57F287')
+                    .setTitle('🎚️ Jerarquía de Rol Actualizada')
+                    .setDescription(`El rol **${targetRole.name}** (${targetRole}) ha sido movido **${args.posicionRelativa || 'debajo'}** del rol **${refRole.name}** (${refRole}).`)
+                    .addFields({ name: '🛡️ Moderador', value: `${message.author}` })
+                    .setTimestamp();
+                  await message.channel.send({ embeds: [embed] });
+                  continue;
+                } catch (posErr) {
+                  await message.reply('❌ No pude mover la posición del rol. Recuerda que el rol de KITE en Discord debe estar en la parte superior para poder ordenar a los demás roles.');
+                  continue;
+                }
+              } else {
+                await message.reply(`⚠️ No se encontró alguno de los roles para ajustar la jerarquía (**${roleName}** o **${args.rolReferencia}**).`);
+                continue;
+              }
+            }
+          }
+
           // 0. GESTIONAR SERVIDOR GENERAL (FOTO DE PERFIL DE SERVIDOR, NOMBRE, EMOJIS)
           if (name === 'gestionar_servidor_general') {
             if (!message.member.permissions.has(PermissionFlagsBits.ManageGuild) &&
