@@ -80,24 +80,46 @@ module.exports = {
           const name = fn.name;
           const args = fn.args || {};
 
-          // 0. EJECUTOR UNIVERSAL DE ACCIONES DE DISCORD EN TIEMPO REAL
-          if (name === 'ejecutar_accion_servidor_universal') {
-            const cat = (args.categoriaAccion || '').toLowerCase();
-            const actionDet = (args.accionDetallada || '').toLowerCase();
-            const objPrincipal = args.objetivoPrincipal;
-            const objSecundario = args.objetivoSecundario;
+          // 0. GESTIONAR ROLES AVANZADO (RENOMBRAR ROL / MOVER JERARQUÍA)
+          if (name === 'gestionar_roles_avanzado') {
+            if (!message.member.permissions.has(PermissionFlagsBits.ManageRoles) &&
+                !message.member.permissions.has(PermissionFlagsBits.Administrator)) {
+              await message.reply('❌ No tienes permiso de **Gestionar Roles** para ejecutar esta acción.');
+              continue;
+            }
 
-            // Manejo dinámico de roles
-            if (cat === 'roles' || actionDet.includes('rol') || actionDet.includes('posicion') || actionDet.includes('jerarquia')) {
-              const resTarget = findRoleInGuild(objPrincipal, message.guild, message.mentions);
-              const resRef = objSecundario ? findRoleInGuild(objSecundario, message.guild, message.mentions) : null;
+            const roleName = args.nombreRol;
+            const resTarget = findRoleInGuild(roleName, message.guild, message.mentions);
 
-              if (resTarget.status === 'found') {
-                const targetRole = resTarget.role;
-                if (resRef && resRef.status === 'found') {
+            if (resTarget.status === 'found') {
+              const targetRole = resTarget.role;
+
+              // Renombrar rol
+              if (args.nuevoNombre) {
+                const oldName = targetRole.name;
+                try {
+                  await targetRole.setName(args.nuevoNombre);
+                  const embed = new EmbedBuilder()
+                    .setColor(targetRole.color || '#57F287')
+                    .setTitle('✏️ Nombre de Rol Actualizado')
+                    .setDescription(`El rol **"${oldName}"** ha sido renombrado exitosamente a **"${args.nuevoNombre}"** (${targetRole}).`)
+                    .addFields({ name: '🛡️ Moderador', value: `${message.author}` })
+                    .setTimestamp();
+                  await message.channel.send({ embeds: [embed] });
+                  continue;
+                } catch (err) {
+                  await message.reply('❌ No pude cambiar el nombre de ese rol (puede que sea un rol administrado por un bot o superior).');
+                  continue;
+                }
+              }
+
+              // Mover jerarquía
+              if (args.rolReferencia) {
+                const resRef = findRoleInGuild(args.rolReferencia, message.guild, message.mentions);
+                if (resRef.status === 'found') {
                   const refRole = resRef.role;
                   let newPos = refRole.position;
-                  if (cleanPrompt.toLowerCase().includes('debajo')) {
+                  if ((args.posicionRelativa || '').toLowerCase() === 'debajo') {
                     newPos = Math.max(refRole.position - 1, 1);
                   } else {
                     newPos = refRole.position + 1;
@@ -108,64 +130,20 @@ module.exports = {
                     const embed = new EmbedBuilder()
                       .setColor('#57F287')
                       .setTitle('🎚️ Jerarquía de Rol Actualizada')
-                      .setDescription(`El rol **${targetRole.name}** (${targetRole}) ha sido movido a su nueva posición junto al rol **${refRole.name}**.`)
+                      .setDescription(`El rol **${targetRole.name}** (${targetRole}) ha sido movido **${args.posicionRelativa || 'debajo'}** del rol **${refRole.name}** (${refRole}).`)
                       .addFields({ name: '🛡️ Moderador', value: `${message.author}` })
                       .setTimestamp();
                     await message.channel.send({ embeds: [embed] });
                     continue;
                   } catch (posErr) {
-                    await message.reply('❌ No pude mover la posición del rol. Asegúrate de que el rol de KITE en Ajustes de Servidor > Roles esté por encima para poder ordenarlo.');
+                    await message.reply('❌ No pude mover la posición del rol. Recuerda que el rol de KITE en Discord debe estar en la parte superior para poder ordenar a los demás roles.');
                     continue;
                   }
                 }
               }
-            }
-          }
-
-          // 0. GESTIONAR ROLES AVANZADO (MOVER JERARQUÍA / POSICIÓN EN EL SERVIDOR)
-          if (name === 'gestionar_roles_avanzado') {
-            if (!message.member.permissions.has(PermissionFlagsBits.ManageRoles) &&
-                !message.member.permissions.has(PermissionFlagsBits.Administrator)) {
-              await message.reply('❌ No tienes permiso de **Gestionar Roles** para ejecutar esta acción.');
+            } else {
+              await message.reply(`⚠️ No se encontró el rol **"${roleName}"** en este servidor.`);
               continue;
-            }
-
-            const action = (args.accion || 'editar').toLowerCase();
-            const roleName = args.nombreRol;
-
-            if (action === 'mover_jerarquia' || args.rolReferencia || args.posicionRelativa) {
-              const resTarget = findRoleInGuild(roleName, message.guild, message.mentions);
-              const resRef = findRoleInGuild(args.rolReferencia, message.guild, message.mentions);
-
-              if (resTarget.status === 'found' && resRef.status === 'found') {
-                const targetRole = resTarget.role;
-                const refRole = resRef.role;
-
-                let newPos = refRole.position;
-                if ((args.posicionRelativa || '').toLowerCase() === 'debajo') {
-                  newPos = Math.max(refRole.position - 1, 1);
-                } else if ((args.posicionRelativa || '').toLowerCase() === 'encima') {
-                  newPos = refRole.position + 1;
-                }
-
-                try {
-                  await targetRole.setPosition(newPos);
-                  const embed = new EmbedBuilder()
-                    .setColor('#57F287')
-                    .setTitle('🎚️ Jerarquía de Rol Actualizada')
-                    .setDescription(`El rol **${targetRole.name}** (${targetRole}) ha sido movido **${args.posicionRelativa || 'debajo'}** del rol **${refRole.name}** (${refRole}).`)
-                    .addFields({ name: '🛡️ Moderador', value: `${message.author}` })
-                    .setTimestamp();
-                  await message.channel.send({ embeds: [embed] });
-                  continue;
-                } catch (posErr) {
-                  await message.reply('❌ No pude mover la posición del rol. Recuerda que el rol de KITE en Discord debe estar en la parte superior para poder ordenar a los demás roles.');
-                  continue;
-                }
-              } else {
-                await message.reply(`⚠️ No se encontró alguno de los roles para ajustar la jerarquía (**${roleName}** o **${args.rolReferencia}**).`);
-                continue;
-              }
             }
           }
 
@@ -299,135 +277,6 @@ module.exports = {
                 continue;
               }
             }
-
-            if (actionType === 'unmute_voz') {
-              try {
-                await targetMember.voice.setMute(false, `Ordenado por ${message.author.tag}`);
-                await message.reply(`🎙️ **${targetMember.user.tag}** ya no está silenciado en el canal de voz.`);
-                continue;
-              } catch (err) {
-                await message.reply('❌ No se pudo quitar el silencio en voz al miembro.');
-                continue;
-              }
-            }
-          }
-
-          // 0. CREAR CATEGORÍA POR IA
-          if (name === 'crear_categoria') {
-            if (!message.member.permissions.has(PermissionFlagsBits.ManageChannels) &&
-                !message.member.permissions.has(PermissionFlagsBits.Administrator)) {
-              await message.reply('❌ No tienes permiso de **Gestionar Canales** para ejecutar esta acción.');
-              continue;
-            }
-
-            try {
-              const category = await message.guild.channels.create({
-                name: args.nombreCategoria,
-                type: ChannelType.GuildCategory,
-                reason: `Creado por orden agéntica de ${message.author.tag}`
-              });
-
-              const embed = new EmbedBuilder()
-                .setColor('#9B59B6')
-                .setTitle('📁 Nueva Categoría Creada')
-                .setDescription(`Se ha creado la categoría **${category.name}** en el servidor.`)
-                .addFields({ name: '🛡️ Arquitecto', value: `${message.author}` })
-                .setTimestamp();
-
-              await message.channel.send({ embeds: [embed] });
-            } catch (err) {
-              console.error('Error creando categoría:', err);
-              await message.reply('❌ Ocurrió un error al intentar crear la categoría.');
-            }
-          }
-
-          // 0. CREAR O EDITAR ROL EN EL SERVIDOR (CON PERMISOS DE ROL INTELIGENTE SIN DUPLICADOS)
-          if (name === 'crear_eliminar_rol') {
-            if (!message.member.permissions.has(PermissionFlagsBits.ManageRoles) &&
-                !message.member.permissions.has(PermissionFlagsBits.Administrator)) {
-              await message.reply('❌ No tienes permiso de **Gestionar Roles** para ejecutar esta acción.');
-              continue;
-            }
-
-            const action = (args.accion || 'crear').toLowerCase();
-            const roleName = args.nombreRol;
-
-            if (action === 'crear') {
-              const colorMap = { azul: 'Blue', rojo: 'Red', verde: 'Green', amarillo: 'Yellow', dorado: 'Gold', morado: 'Purple', gris: 'Grey', negro: 'DarkerGrey' };
-              const colorValue = colorMap[(args.color || '').toLowerCase()] || args.color || 'Grey';
-
-              let targetRole = message.guild.roles.cache.find(r => r.name.toLowerCase() === roleName.toLowerCase());
-              let isNew = false;
-
-              if (!targetRole) {
-                targetRole = await message.guild.roles.create({
-                  name: roleName,
-                  color: colorValue,
-                  reason: `Creado por orden agéntica de ${message.author.tag}`
-                });
-                isNew = true;
-              }
-
-              // Aplicar o modificar permisos en todos los canales
-              const overwrites = {};
-              const summaryLines = [];
-
-              if (typeof args.permitirVerCanales === 'boolean') {
-                overwrites.ViewChannel = args.permitirVerCanales;
-                overwrites.ReadMessageHistory = args.permitirVerCanales;
-                summaryLines.push(`• 👁️ **Ver Canales:** ${args.permitirVerCanales ? 'PERMITIDO (Verde ✅)' : 'PROHIBIDO (Rojo ❌)'}`);
-              }
-
-              if (typeof args.permitirEscribir === 'boolean') {
-                overwrites.SendMessages = args.permitirEscribir;
-                summaryLines.push(`• 📝 **Enviar Mensajes:** ${args.permitirEscribir ? 'PERMITIDO (Verde ✅)' : 'PROHIBIDO (Rojo ❌)'}`);
-              }
-
-              if (typeof args.permitirVerHistorial === 'boolean') {
-                overwrites.ReadMessageHistory = args.permitirVerHistorial;
-                summaryLines.push(`• 📜 **Leer Historial:** ${args.permitirVerHistorial ? 'PERMITIDO (Verde ✅)' : 'PROHIBIDO (Rojo ❌)'}`);
-              }
-
-              if (typeof args.permitirVoz === 'boolean') {
-                overwrites.Connect = args.permitirVoz;
-                overwrites.Speak = args.permitirVoz;
-                summaryLines.push(`• 🔊 **Unirse a Voz:** ${args.permitirVoz ? 'PERMITIDO (Verde ✅)' : 'PROHIBIDO (Rojo ❌)'}`);
-              }
-
-              if (Object.keys(overwrites).length > 0) {
-                for (const [, channel] of message.guild.channels.cache) {
-                  await channel.permissionOverwrites.edit(targetRole.id, overwrites).catch(() => null);
-                }
-              }
-
-              const embed = new EmbedBuilder()
-                .setColor(targetRole.color || '#57F287')
-                .setTitle(isNew ? '🎭 Nuevo Rol Creado y Configurado' : '⚙️ Permisos de Rol Actualizados')
-                .setDescription(`Se han actualizado los permisos del rol **${targetRole.name}** (${targetRole}).\n\n` +
-                  (summaryLines.length > 0 ? summaryLines.join('\n') : '• Configuración general aplicada.'))
-                .setTimestamp();
-
-              await message.channel.send({ embeds: [embed] });
-              continue;
-            }
-
-            if (action === 'eliminar') {
-              const res = findRoleInGuild(roleName, message.guild, message.mentions);
-              if (res.status === 'found') {
-                await res.role.delete(`Eliminado por orden agéntica de ${message.author.tag}`);
-                const embed = new EmbedBuilder()
-                  .setColor('#ED4245')
-                  .setTitle('🗑️ Rol Eliminado')
-                  .setDescription(`El rol **"${roleName}"** ha sido eliminado del servidor.`)
-                  .addFields({ name: '🛡️ Moderador', value: `${message.author}` })
-                  .setTimestamp();
-                await message.channel.send({ embeds: [embed] });
-                continue;
-              } else {
-                await message.reply(`⚠️ El rol **"${roleName}"** no existe en este servidor.`);
-                continue;
-              }
-            }
           }
 
           // 0. CONFIGURAR PERMISOS AVANZADOS DINÁMICOS Y UNIVERSALES DE ROLES EN CANAL POR IA
@@ -482,58 +331,12 @@ module.exports = {
                 if (rolesToModify.length === 0) rolesToModify.push(message.guild.roles.everyone);
               }
 
-              // Matriz Completa y Universal de Permisos de Discord (Incluyendo Soundboard, Voz, Encuestas y Hilos)
               const overwritesObj = {};
               const summaryLines = [];
 
               if (typeof args.permitirUsarPanelDeSonidos === 'boolean') {
                 overwritesObj[PermissionFlagsBits.UseSoundboard || 'UseSoundboard'] = args.permitirUsarPanelDeSonidos;
                 summaryLines.push(`• 🔊 **Usar Panel de Sonidos (Soundboard):** ${args.permitirUsarPanelDeSonidos ? 'PERMITIDO (Verde ✅)' : 'PROHIBIDO (Rojo ❌)'}`);
-              }
-
-              if (typeof args.permitirSonidosExternos === 'boolean') {
-                overwritesObj.UseExternalSounds = args.permitirSonidosExternos;
-                summaryLines.push(`• 🎵 **Usar Sonidos Externos:** ${args.permitirSonidosExternos ? 'PERMITIDO (Verde ✅)' : 'PROHIBIDO (Rojo ❌)'}`);
-              }
-
-              if (typeof args.permitirTransmitir === 'boolean') {
-                overwritesObj.Stream = args.permitirTransmitir;
-                summaryLines.push(`• 📹 **Transmitir en Vivo / Compartir Pantalla:** ${args.permitirTransmitir ? 'PERMITIDO (Verde ✅)' : 'PROHIBIDO (Rojo ❌)'}`);
-              }
-
-              if (typeof args.permitirHablar === 'boolean') {
-                overwritesObj.Speak = args.permitirHablar;
-                summaryLines.push(`• 🎙️ **Hablar en Voz:** ${args.permitirHablar ? 'PERMITIDO (Verde ✅)' : 'PROHIBIDO (Rojo ❌)'}`);
-              }
-
-              if (typeof args.permitirConectar === 'boolean') {
-                overwritesObj.Connect = args.permitirConectar;
-                summaryLines.push(`• 🔌 **Conectarse a Voz:** ${args.permitirConectar ? 'PERMITIDO (Verde ✅)' : 'PROHIBIDO (Rojo ❌)'}`);
-              }
-
-              if (typeof args.permitirCrearEncuestas === 'boolean') {
-                overwritesObj[PermissionFlagsBits.SendPolls || 'SendPolls'] = args.permitirCrearEncuestas;
-                summaryLines.push(`• 📊 **Crear Encuestas:** ${args.permitirCrearEncuestas ? 'PERMITIDO (Verde ✅)' : 'PROHIBIDO (Rojo ❌)'}`);
-              }
-
-              if (typeof args.permitirCrearHilosPublicos === 'boolean') {
-                overwritesObj.CreatePublicThreads = args.permitirCrearHilosPublicos;
-                summaryLines.push(`• 🧵 **Crear Hilos Públicos:** ${args.permitirCrearHilosPublicos ? 'PERMITIDO (Verde ✅)' : 'PROHIBIDO (Rojo ❌)'}`);
-              }
-
-              if (typeof args.permitirCrearHilosPrivados === 'boolean') {
-                overwritesObj.CreatePrivateThreads = args.permitirCrearHilosPrivados;
-                summaryLines.push(`• 🔒 **Crear Hilos Privados:** ${args.permitirCrearHilosPrivados ? 'PERMITIDO (Verde ✅)' : 'PROHIBIDO (Rojo ❌)'}`);
-              }
-
-              if (typeof args.permitirMensajesEnHilos === 'boolean') {
-                overwritesObj.SendMessagesInThreads = args.permitirMensajesEnHilos;
-                summaryLines.push(`• 💬 **Enviar Mensajes en Hilos:** ${args.permitirMensajesEnHilos ? 'PERMITIDO (Verde ✅)' : 'PROHIBIDO (Rojo ❌)'}`);
-              }
-
-              if (typeof args.permitirBorrarMensajes === 'boolean') {
-                overwritesObj.ManageMessages = args.permitirBorrarMensajes;
-                summaryLines.push(`• 🗑️ **Borrar / Gestionar Mensajes:** ${args.permitirBorrarMensajes ? 'PERMITIDO (Verde ✅)' : 'PROHIBIDO (Rojo ❌)'}`);
               }
 
               if (typeof args.permitirEscribir === 'boolean') {
@@ -545,37 +348,6 @@ module.exports = {
                 overwritesObj.ViewChannel = args.permitirVer;
                 overwritesObj.ReadMessageHistory = args.permitirVer;
                 summaryLines.push(`• 👁️ **Ver Canal:** ${args.permitirVer ? 'PERMITIDO (Verde ✅)' : 'OCULTO (Rojo ❌)'}`);
-              }
-
-              if (typeof args.permitirVerHistorial === 'boolean') {
-                overwritesObj.ReadMessageHistory = args.permitirVerHistorial;
-                summaryLines.push(`• 📜 **Leer Historial:** ${args.permitirVerHistorial ? 'PERMITIDO (Verde ✅)' : 'PROHIBIDO (Rojo ❌)'}`);
-              }
-
-              if (typeof args.permitirArchivos === 'boolean') {
-                overwritesObj.AttachFiles = args.permitirArchivos;
-                overwritesObj.EmbedLinks = args.permitirArchivos;
-                summaryLines.push(`• 🖼️ **Adjuntar Archivos:** ${args.permitirArchivos ? 'PERMITIDO (Verde ✅)' : 'PROHIBIDO (Rojo ❌)'}`);
-              }
-
-              if (typeof args.permitirReacciones === 'boolean') {
-                overwritesObj.AddReactions = args.permitirReacciones;
-                summaryLines.push(`• 😀 **Añadir Reacciones:** ${args.permitirReacciones ? 'PERMITIDO (Verde ✅)' : 'PROHIBIDO (Rojo ❌)'}`);
-              }
-
-              if (typeof args.permitirEmojisExternos === 'boolean') {
-                overwritesObj.UseExternalEmojis = args.permitirEmojisExternos;
-                summaryLines.push(`• 🎨 **Usar Emojis Externos:** ${args.permitirEmojisExternos ? 'PERMITIDO (Verde ✅)' : 'PROHIBIDO (Rojo ❌)'}`);
-              }
-
-              if (typeof args.permitirMencionarEveryone === 'boolean') {
-                overwritesObj.MentionEveryone = args.permitirMencionarEveryone;
-                summaryLines.push(`• 🔔 **Mencionar @everyone:** ${args.permitirMencionarEveryone ? 'PERMITIDO (Verde ✅)' : 'PROHIBIDO (Rojo ❌)'}`);
-              }
-
-              if (typeof args.permitirCrearInvitacion === 'boolean') {
-                overwritesObj.CreateInstantInvite = args.permitirCrearInvitacion;
-                summaryLines.push(`• 🔗 **Crear Invitación:** ${args.permitirCrearInvitacion ? 'PERMITIDO (Verde ✅)' : 'PROHIBIDO (Rojo ❌)'}`);
               }
 
               if (Object.keys(overwritesObj).length === 0) {
@@ -624,257 +396,6 @@ module.exports = {
             continue;
           }
 
-          // 1. GESTIONAR ROL DE USUARIO (DALE / QUÍTALE UN ROL A UN USUARIO)
-          if (name === 'gestionar_rol_usuario') {
-            if (!message.member.permissions.has(PermissionFlagsBits.ManageRoles) &&
-                !message.member.permissions.has(PermissionFlagsBits.Administrator)) {
-              await message.reply('❌ No tienes permiso de **Gestionar Roles** para ejecutar esta acción.');
-              continue;
-            }
-
-            const targetMember = message.mentions.members.filter(m => m.id !== message.client.user.id).first();
-            if (!targetMember) {
-              await message.reply('⚠️ Debes mencionar al usuario al cual deseas gestionar los roles.');
-              continue;
-            }
-
-            let addedRole = null;
-            let removedRole = null;
-
-            if (args.nombreRolAgregar) {
-              const res = findRoleInGuild(args.nombreRolAgregar, message.guild, message.mentions);
-              if (res.status === 'found') {
-                addedRole = res.role;
-                await targetMember.roles.add(addedRole).catch(() => null);
-              } else {
-                await message.reply(`⚠️ El rol **"${args.nombreRolAgregar}"** no existe en este servidor.`);
-                continue;
-              }
-            }
-
-            if (args.nombreRolQuitar) {
-              const res = findRoleInGuild(args.nombreRolQuitar, message.guild, message.mentions);
-              if (res.status === 'found') {
-                removedRole = res.role;
-                await targetMember.roles.remove(removedRole).catch(() => null);
-              } else {
-                await message.reply(`⚠️ El rol **"${args.nombreRolQuitar}"** no existe en este servidor.`);
-                continue;
-              }
-            }
-
-            const embed = new EmbedBuilder()
-              .setColor('#57F287')
-              .setTitle('👤 Roles de Usuario Actualizados')
-              .setDescription(`Se han modificado los roles de **${targetMember.user.tag}** (${targetMember}).`)
-              .addFields(
-                { name: '➕ Rol Asignado', value: addedRole ? `${addedRole}` : 'Ninguno', inline: true },
-                { name: '➖ Rol Removido', value: removedRole ? `${removedRole}` : 'Ninguno', inline: true },
-                { name: '🛡️ Moderador', value: `${message.author}` }
-              )
-              .setThumbnail(targetMember.user.displayAvatarURL())
-              .setTimestamp();
-
-            await message.channel.send({ embeds: [embed] });
-            continue;
-          }
-
-          // 3. AUTOROL DE BIENVENIDA
-          if (name === 'autorol_bienvenida') {
-            if (!message.member.permissions.has(PermissionFlagsBits.ManageRoles) &&
-                !message.member.permissions.has(PermissionFlagsBits.Administrator)) {
-              await message.reply('❌ No tienes permiso de **Gestionar Roles** para ejecutar esta acción.');
-              continue;
-            }
-
-            const inputRole = (args.nombreRol || '').toLowerCase();
-            if (inputRole === 'desactivar' || inputRole === 'ninguno' || inputRole === 'remover') {
-              await GuildConfig.findOneAndUpdate(
-                { guildId: message.guild.id },
-                { autoRoleId: null, autoRoleName: null, updatedAt: Date.now() },
-                { upsert: true }
-              );
-              await message.reply('⚙️ El **Autorol de Bienvenida** ha sido **desactivado**.');
-              continue;
-            }
-
-            const res = findRoleInGuild(args.nombreRol, message.guild, message.mentions);
-            if (res.status === 'found') {
-              const targetRole = res.role;
-              await GuildConfig.findOneAndUpdate(
-                { guildId: message.guild.id },
-                { autoRoleId: targetRole.id, autoRoleName: targetRole.name, updatedAt: Date.now() },
-                { upsert: true }
-              );
-
-              const embed = new EmbedBuilder()
-                .setColor('#57F287')
-                .setTitle('🌟 Autorol de Bienvenida Configurado')
-                .setDescription(`Ahora **todos los miembros nuevos** recibirán automáticamente el rol **${targetRole.name}** (${targetRole}).`)
-                .addFields({ name: '🛡️ Configurado por', value: `${message.author}` })
-                .setTimestamp();
-
-              await message.channel.send({ embeds: [embed] });
-              continue;
-            } else {
-              await message.reply(`⚠️ El rol **"${args.nombreRol}"** no existe en este servidor.`);
-              continue;
-            }
-          }
-
-          // 4. CREAR O EDITAR CANAL DE TEXTO/VOZ (CON SOPORTE DE CATEGORÍA)
-          if (name === 'crear_editar_canal') {
-            if (!message.member.permissions.has(PermissionFlagsBits.ManageChannels) &&
-                !message.member.permissions.has(PermissionFlagsBits.Administrator)) {
-              await message.reply('❌ No tienes permiso de **Gestionar Canales** para ejecutar esta acción.');
-              continue;
-            }
-
-            const action = (args.accion || 'crear').toLowerCase();
-            const channelName = args.nombreCanal;
-            const isVoice = (args.tipoCanal || '').toLowerCase().includes('voz');
-
-            let parentCategory = null;
-            if (args.nombreCategoria) {
-              parentCategory = message.guild.channels.cache.find(c => c.type === ChannelType.GuildCategory && c.name.toLowerCase() === args.nombreCategoria.toLowerCase());
-            }
-
-            if (action === 'crear') {
-              const createdChannel = await message.guild.channels.create({
-                name: channelName,
-                type: isVoice ? ChannelType.GuildVoice : ChannelType.GuildText,
-                parent: parentCategory ? parentCategory.id : undefined,
-                topic: args.topic || 'Canal creado por KITE IA',
-                reason: `Creado por orden agéntica de ${message.author.tag}`
-              });
-
-              const embed = new EmbedBuilder()
-                .setColor('#3498DB')
-                .setTitle(isVoice ? '🔊 Nuevo Canal de Voz Creado' : '💬 Nuevo Canal de Texto Creado')
-                .setDescription(`Se ha creado el canal **${createdChannel.name}** (${createdChannel})` + (parentCategory ? ` dentro de la categoría **${parentCategory.name}**.` : '.'))
-                .addFields({ name: '🛡️ Creado por', value: `${message.author}` })
-                .setTimestamp();
-
-              await message.channel.send({ embeds: [embed] });
-              continue;
-            }
-
-            if (action === 'eliminar') {
-              const targetChan = message.guild.channels.cache.find(c => c.name.toLowerCase() === channelName.toLowerCase());
-              if (targetChan) {
-                await targetChan.delete(`Eliminado por orden agéntica de ${message.author.tag}`);
-                await message.reply(`🗑️ El canal **#${channelName}** ha sido eliminado.`);
-                continue;
-              } else {
-                await message.reply(`⚠️ No se encontró el canal **#${channelName}**.`);
-                continue;
-              }
-            }
-          }
-
-          // 5. AUDITAR SERVIDOR
-          if (name === 'auditar_servidor') {
-            await message.guild.members.fetch();
-
-            if (args.consulta === 'miembros_rol' && args.nombreRol) {
-              const res = findRoleInGuild(args.nombreRol, message.guild, message.mentions);
-              if (res.status === 'found') {
-                const r = res.role;
-                const membersWithRole = r.members.map(m => m.user.tag).slice(0, 25);
-                const totalCount = r.members.size;
-
-                const embed = new EmbedBuilder()
-                  .setColor('#5865F2')
-                  .setTitle(`📊 Auditoría de Rol: ${r.name}`)
-                  .setDescription(`Total de miembros con este rol: **${totalCount}**`)
-                  .addFields({ name: '👤 Lista de Miembros (Muestra)', value: membersWithRole.length > 0 ? membersWithRole.join('\n') : 'Ningún miembro tiene este rol.' })
-                  .setTimestamp();
-
-                await message.channel.send({ embeds: [embed] });
-                continue;
-              }
-            }
-
-            const rolesCount = message.guild.roles.cache.size;
-            const membersCount = message.guild.memberCount;
-
-            const embed = new EmbedBuilder()
-              .setColor('#5865F2')
-              .setTitle('📊 Auditoría General del Servidor')
-              .addFields(
-                { name: '👥 Total de Miembros', value: `${membersCount}`, inline: true },
-                { name: '🎭 Total de Roles', value: `${rolesCount}`, inline: true }
-              )
-              .setTimestamp();
-
-            await message.channel.send({ embeds: [embed] });
-            continue;
-          }
-
-          // 6. RESTRINGIR / DESBLOQUEAR CANAL
-          if (name === 'restringir_canal') {
-            if (!message.member.permissions.has(PermissionFlagsBits.ManageChannels) &&
-                !message.member.permissions.has(PermissionFlagsBits.Administrator)) {
-              await message.reply('❌ No tienes permiso de **Gestionar Canales** para ejecutar esta acción.');
-              continue;
-            }
-
-            const forceUnlock = args.desbloquear === true;
-            let targetRole = null;
-
-            if (!forceUnlock && args.nombreRol) {
-              const roleResult = findRoleInGuild(args.nombreRol, message.guild, message.mentions);
-              if (roleResult.status === 'not_found') {
-                await message.reply(`⚠️ El rol **"${args.nombreRol}"** no existe en este servidor.`);
-                continue;
-              }
-              targetRole = roleResult.role;
-            }
-
-            try {
-              const result = await toggleChannelRestriction(message.channel, message.guild, targetRole, forceUnlock);
-              const embed = new EmbedBuilder()
-                .setColor(result.restricted ? '#ED4245' : '#57F287')
-                .setTitle(result.restricted ? '🔒 Modo Restringido Activado' : '🔓 Modo Restringido Desactivado')
-                .setDescription(result.message)
-                .addFields({ name: '🛡️ Moderador', value: `${message.author}` })
-                .setTimestamp();
-              await message.channel.send({ embeds: [embed] });
-              continue;
-            } catch (err) {
-              await message.reply('❌ Ocurrió un error al intentar modificar los permisos del canal.');
-              continue;
-            }
-          }
-
-          // 7. MODO PAUSADO
-          if (name === 'modo_pausado') {
-            if (!message.member.permissions.has(PermissionFlagsBits.ManageChannels) &&
-                !message.member.permissions.has(PermissionFlagsBits.Administrator)) {
-              await message.reply('❌ No tienes permiso de **Gestionar Canales** para ejecutar esta acción.');
-              continue;
-            }
-
-            const seconds = Math.max(args.segundos || 0, 0);
-
-            try {
-              await message.channel.setRateLimitPerUser(seconds, `Por orden de ${message.author.tag}`);
-              const embed = new EmbedBuilder()
-                .setColor(seconds > 0 ? '#3498DB' : '#57F287')
-                .setTitle(seconds > 0 ? '⏱️ Modo Pausado Activado' : '⏱️ Modo Pausado Desactivado')
-                .setDescription(seconds > 0 
-                  ? `El **Modo Pausado** ha sido configurado a **${seconds} segundos** de espera por usuario en este canal.`
-                  : 'El **Modo Pausado** ha sido **desactivado**. Los miembros pueden enviar mensajes normalmente.')
-                .addFields({ name: '🛡️ Moderador', value: `${message.author}` })
-                .setTimestamp();
-              await message.channel.send({ embeds: [embed] });
-              continue;
-            } catch (err) {
-              await message.reply('❌ Ocurrió un error al intentar cambiar el Modo Pausado del canal.');
-              continue;
-            }
-          }
-
           // 8. BORRAR MENSAJES
           if (name === 'borrar_mensajes') {
             if (!message.member.permissions.has(PermissionFlagsBits.ManageMessages)) {
@@ -912,107 +433,6 @@ module.exports = {
                 await message.reply('❌ No se pudieron borrar los mensajes. Asegúrate de que el bot tenga el permiso de **Gestionar Mensajes** en este canal.');
                 continue;
               }
-            }
-          }
-
-          // 9. BANEAR USUARIO
-          if (name === 'banear_usuario') {
-            if (!message.member.permissions.has(PermissionFlagsBits.BanMembers)) {
-              await message.reply('❌ No tienes permiso de **Banear Miembros** para ejecutar esta acción.');
-              continue;
-            }
-
-            const targetMember = message.mentions.members.filter(m => m.id !== message.client.user.id).first();
-            if (!targetMember) {
-              await message.reply('⚠️ Debes mencionar al usuario que deseas banear.');
-              continue;
-            }
-
-            const durationStr = args.duracion || 'permanent';
-            const reasonStr = args.razon || 'Sanción por orden de moderación de IA';
-
-            let durationMs = 0;
-            if (durationStr !== 'permanent') {
-              const match = durationStr.match(/^(\d+)([smhd])$/i);
-              if (match) {
-                const num = parseInt(match[1], 10);
-                const unit = match[2].toLowerCase();
-                const multipliers = { s: 1000, m: 60000, h: 3600000, d: 86400000 };
-                durationMs = num * (multipliers[unit] || 3600000);
-              }
-            }
-
-            try {
-              await targetMember.ban({ reason: `${reasonStr} (Por ${message.author.tag})` });
-
-              if (durationMs > 0) {
-                const expiresAt = new Date(Date.now() + durationMs);
-                await addTempBan({
-                  guildId: message.guild.id,
-                  userId: targetMember.id,
-                  userTag: targetMember.user.tag,
-                  bannedBy: message.author.id,
-                  reason: reasonStr,
-                  expiresAt: expiresAt
-                });
-              }
-
-              const embed = new EmbedBuilder()
-                .setColor('#ED4245')
-                .setTitle('🔴 Usuario Sancionado por IA')
-                .setDescription(`**${targetMember.user.tag}** ha sido baneado del servidor.`)
-                .addFields(
-                  { name: '👤 Usuario', value: `${targetMember.user}`, inline: true },
-                  { name: '⏱️ Duración', value: durationMs > 0 ? `${durationStr}` : 'Permanente', inline: true },
-                  { name: '🛡️ Moderador', value: `${message.author}`, inline: true },
-                  { name: '💬 Razón', value: reasonStr }
-                )
-                .setTimestamp();
-
-              await message.channel.send({ embeds: [embed] });
-              continue;
-            } catch (banErr) {
-              await message.reply('❌ Ocurrió un error al intentar banear al usuario.');
-              continue;
-            }
-          }
-
-          // 10. DESBANEAR USUARIO
-          if (name === 'desbanear_usuario') {
-            if (!message.member.permissions.has(PermissionFlagsBits.BanMembers)) {
-              await message.reply('❌ No tienes permiso de **Banear Miembros** para ejecutar esta acción.');
-              continue;
-            }
-
-            const idMatch = message.content.match(/\d{17,19}/);
-            const targetUserId = idMatch ? idMatch[0] : null;
-
-            if (!targetUserId) {
-              await message.reply('⚠️ Debes mencionar o escribir la ID del usuario a desbanear.');
-              continue;
-            }
-
-            const reasonStr = args.razon || 'Desbaneo por orden de moderación de IA';
-
-            try {
-              await message.guild.bans.remove(targetUserId, `${reasonStr} (Por ${message.author.tag})`);
-              await removeTempBan(message.guild.id, targetUserId);
-
-              const embed = new EmbedBuilder()
-                .setColor('#57F287')
-                .setTitle('🟢 Usuario Desbaneado por IA')
-                .setDescription(`El usuario con ID \`${targetUserId}\` ha sido desbaneado del servidor.`)
-                .addFields(
-                  { name: '🛡️ Moderador', value: `${message.author}`, inline: true },
-                  { name: '💬 Razón', value: reasonStr }
-                )
-                .setTimestamp();
-
-              await message.channel.send({ embeds: [embed] });
-              continue;
-            } catch (unbanErr) {
-              await message.reply('❌ No se encontró el ban de ese usuario en este servidor.');
-              continue;
             }
           }
         }
