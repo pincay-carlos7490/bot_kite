@@ -80,6 +80,48 @@ module.exports = {
           const name = fn.name;
           const args = fn.args || {};
 
+          // 0. EJECUTOR UNIVERSAL DE ACCIONES DE DISCORD EN TIEMPO REAL
+          if (name === 'ejecutar_accion_servidor_universal') {
+            const cat = (args.categoriaAccion || '').toLowerCase();
+            const actionDet = (args.accionDetallada || '').toLowerCase();
+            const objPrincipal = args.objetivoPrincipal;
+            const objSecundario = args.objetivoSecundario;
+
+            // Manejo dinámico de roles
+            if (cat === 'roles' || actionDet.includes('rol') || actionDet.includes('posicion') || actionDet.includes('jerarquia')) {
+              const resTarget = findRoleInGuild(objPrincipal, message.guild, message.mentions);
+              const resRef = objSecundario ? findRoleInGuild(objSecundario, message.guild, message.mentions) : null;
+
+              if (resTarget.status === 'found') {
+                const targetRole = resTarget.role;
+                if (resRef && resRef.status === 'found') {
+                  const refRole = resRef.role;
+                  let newPos = refRole.position;
+                  if (cleanPrompt.toLowerCase().includes('debajo')) {
+                    newPos = Math.max(refRole.position - 1, 1);
+                  } else {
+                    newPos = refRole.position + 1;
+                  }
+
+                  try {
+                    await targetRole.setPosition(newPos);
+                    const embed = new EmbedBuilder()
+                      .setColor('#57F287')
+                      .setTitle('🎚️ Jerarquía de Rol Actualizada')
+                      .setDescription(`El rol **${targetRole.name}** (${targetRole}) ha sido movido a su nueva posición junto al rol **${refRole.name}**.`)
+                      .addFields({ name: '🛡️ Moderador', value: `${message.author}` })
+                      .setTimestamp();
+                    await message.channel.send({ embeds: [embed] });
+                    continue;
+                  } catch (posErr) {
+                    await message.reply('❌ No pude mover la posición del rol. Asegúrate de que el rol de KITE en Ajustes de Servidor > Roles esté por encima para poder ordenarlo.');
+                    continue;
+                  }
+                }
+              }
+            }
+          }
+
           // 0. GESTIONAR ROLES AVANZADO (MOVER JERARQUÍA / POSICIÓN EN EL SERVIDOR)
           if (name === 'gestionar_roles_avanzado') {
             if (!message.member.permissions.has(PermissionFlagsBits.ManageRoles) &&
