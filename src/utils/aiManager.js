@@ -27,24 +27,24 @@ function getApiKeyPool() {
 }
 
 // -------------------------------------------------------------
-// DICCIONARIOS MULTILINGÜES DE HERRAMIENTAS
+// SUITE COMPLETA DE HERRAMIENTAS DE DISCORD CON PARÁMETROS SEMÁNTICOS
 // -------------------------------------------------------------
 
 const toolRoles = {
   name: 'gestionar_roles_avanzado',
-  description: 'Administra cualquier propiedad o permiso de roles en Discord: permiso de gestionar roles (ManageRoles), permiso de gestionar canales, administrador, color de rol, renombrar, mover jerarquía/posición, mostrar u ocultar por separado (hoist), permitir mención.',
+  description: 'Administra cualquier propiedad o permiso de roles en Discord analizando la frase completa. Soporta: permiso de gestionar roles (ManageRoles), permisos de servidor, color de rol, renombrar, mover jerarquía/posición, mostrar u ocultar por separado en lista lateral (hoist), permitir mención.',
   parameters: {
     type: Type.OBJECT,
     properties: {
       accion: { type: Type.STRING, description: '"crear", "eliminar", "mover_jerarquia", "editar"' },
-      nombreRol: { type: Type.STRING, description: 'Nombre o mención del rol objetivo (ej: "@Moderadores").' },
+      nombreRol: { type: Type.STRING, description: 'Nombre o mención del rol objetivo.' },
       rolReferencia: { type: Type.STRING, description: 'Rol de referencia para colocación.' },
       posicionRelativa: { type: Type.STRING, description: '"debajo" o "encima"' },
       color: { type: Type.STRING, description: 'Color del rol (ej: "rojo fuerte", "amarillo brillante", "azul", "#FF0000").' },
       nuevoNombre: { type: Type.STRING, description: 'Nuevo nombre para el rol.' },
       separarMiembros: { type: Type.BOOLEAN, description: 'True para mostrar por separado en la lista lateral (Hoist), False para agrupar.' },
       permitirMencion: { type: Type.BOOLEAN, description: 'True para permitir mención del rol, False para prohibir.' },
-      permisoGestionarRoles: { type: Type.BOOLEAN, description: 'True para otorgar el permiso de Gestionar Roles (ManageRoles) a este rol, False para quitarlo.' }
+      permisoGestionarRoles: { type: Type.BOOLEAN, description: 'True para otorgar el permiso de seguridad de Gestionar Roles (ManageRoles) a este rol, False para quitarlo.' }
     },
     required: ['accion', 'nombreRol']
   }
@@ -115,8 +115,8 @@ const toolDinamicaUniversal = {
     properties: {
       entidadObjetivo: { type: Type.STRING, description: '"rol", "canal", "servidor", "miembro"' },
       nombreObjetivo: { type: Type.STRING, description: 'Nombre o mención del objetivo.' },
-      metodoPropiedad: { type: Type.STRING, description: 'Propiedad o acción (ej: "gestionar roles", "color", "apodo", "hoist").' },
-      valor: { type: Type.STRING, description: 'Valor (ej: "true", "false").' }
+      metodoPropiedad: { type: Type.STRING, description: 'Propiedad o acción.' },
+      valor: { type: Type.STRING, description: 'Valor.' }
     },
     required: ['entidadObjetivo', 'nombreObjetivo', 'metodoPropiedad']
   }
@@ -156,14 +156,18 @@ async function processAgenticAI(prompt, username = 'Usuario', guildRoles = [], g
 
   const guildSummary = guildContext.summary || 'Servidor Activo';
 
+  // DIRECTIVA MAESTRA DE LECTURA INTEGRAL DE FRASE COMPLETA
   const systemInstruction = 
-    `Tu nombre es KITE. Eres el AGENTE AUTÓNOMO CON CONTROL TOTAL DE DISCORD.\n` +
+    `Tu nombre es KITE. Eres el AGENTE AUTÓNOMO INTELIGENTE CON COMPRENSIÓN INTEGRAL DE DISCORD.\n` +
     `ESTADO DEL SERVIDOR EN TIEMPO REAL:\n${guildSummary}\n\n` +
-    `REGLAS DE ATENCIÓN Y EJECUCIÓN DIRECTA:\n` +
-    `1. NUNCA te presentes de forma mecánica ("Hola, soy KITE...").\n` +
-    `2. PERMISO DE GESTIONAR ROLES EN UN ROL: Si el usuario "${username}" te pide que un rol tenga permiso de gestionar roles (ej: "hace que el rol Moderadores si tenga permiso de gestionar roles"), INVOCA OBLIGATORIAMENTE "gestionar_roles_avanzado" con accion: "editar", nombreRol: "Moderadores", permisoGestionarRoles: true.\n` +
-    `3. PROHIBIDO CONFUNDIR PERMISOS DE ROL CON LA OPCIÓN DE MOSTRAR POR SEPARADO (HOIST).\n` +
-    `4. PROHIBIDO DECIR "NO DISPONGO DE UNA FUNCIÓN". EJECUTA SIEMPRE LA HERRAMIENTA DE FORMA INMEDIATA.`;
+    `REGLAS RIGUROSAS DE LECTURA E INTERPRETACIONAL SEMÁNTICA INTEGRAL:\n` +
+    `1. DEBES LEER LA FRASE COMPLETA ENVIADA POR EL USUARIO "${username}" PARA ENTENDER SU INTENCIÓN EXACTA Y FINAL. PROHIBIDO HACER COINCIDENCIAS APROXIMADAS O PARCIALES.\n` +
+    `2. SI LA FRASE COMPLETA SOLICITA UN PERMISO DE SEGURIDAD (ej: "permiso de gestionar roles", "permiso de banear", "permiso de escribir"):\n` +
+    `   - INVOCA LA HERRAMIENTA DE PERMISOS: "gestionar_roles_avanzado" asignando permisoGestionarRoles: true (o false).\n` +
+    `   - PROHIBIDO CONFUNDIR PERMISOS DE SEGURIDAD CON PROPIEDADES VISUALES COMO HOIST O SEPARAR MIEMBROS.\n` +
+    `3. SI LA FRASE COMPLETA SOLICITA UNA PROPIEDAD VISUAL (ej: "no aparezca separado", "color rojo", "cambiar apodo", "nombre del servidor"):\n` +
+    `   - INVOCA LA PROPIEDAD VISUAL CORRESPONDIENTE (separarMiembros, color, apodo, cambiar_nombre).\n` +
+    `4. NUNCA te presentes de forma mecánica ("Hola, soy KITE..."). EJECUTA LA HERRAMIENTA QUE CORRESPONDA A LA FRASE COMPLETA DE FORMA INMEDIATA.`;
 
   const promptWithMemory = chatHistory 
     ? `${systemInstruction}\n\nHISTORIAL DE CHAT:\n${chatHistory}\n\n[Mensaje de ${username}]: ${prompt}`
@@ -202,16 +206,38 @@ async function processAgenticAI(prompt, username = 'Usuario', guildRoles = [], g
   }
 
   // -------------------------------------------------------------
-  // MOTOR DE RESPALDO ULTRA-SEMÁNTICO INFALIBLE
+  // MOTOR DE RESPALDO DE COMPRENSIÓN INTEGRAL DE FRASE COMPLETA
   // -------------------------------------------------------------
   const promptLower = prompt.toLowerCase();
 
-  // Otorgar o Quitar Permisos de Rol (ej: "hace que el rol Moderadores si tenga permiso de gestionar roles")
-  if (promptLower.includes('permiso de gestionar roles') || promptLower.includes('permisos de gestionar roles') || (promptLower.includes('gestionar roles') && promptLower.includes('permiso'))) {
-    const roleMatch = prompt.match(/(?:rol\s+@?|el\s+rol\s+@?)([a-záéíóúñ0-9_\-\s]+?)(?:\s+si|\s+no|\s+tenga|\s+con|\s+sin|\s+permiso|$)/i);
-    const targetName = roleMatch ? roleMatch[1].trim() : 'moderadores';
-    const isDeny = promptLower.includes('no tenga') || promptLower.includes('quitar') || promptLower.includes('prohibir');
+  // 1. ANÁLISIS DE INTENCIÓN DE PERMISOS DE SEGURIDAD DE ROL
+  if (promptLower.includes('permiso') || promptLower.includes('permisos') || promptLower.includes('gestionar roles')) {
+    const isPermissionIntent = promptLower.includes('gestionar roles') || promptLower.includes('administrador') || promptLower.includes('banear') || promptLower.includes('expulsar');
+    
+    if (isPermissionIntent) {
+      const roleMatch = prompt.match(/(?:rol\s+@?|el\s+rol\s+@?)([a-záéíóúñ0-9_\-\s]+?)(?:\s+si|\s+no|\s+tenga|\s+con|\s+sin|\s+permiso|$)/i);
+      const targetName = roleMatch ? roleMatch[1].trim() : 'moderadores';
+      const isDeny = promptLower.includes('no tenga') || promptLower.includes('quitar') || promptLower.includes('prohibir');
 
+      return {
+        type: 'tools',
+        functionCalls: [{
+          name: 'gestionar_roles_avanzado',
+          args: {
+            accion: 'editar',
+            nombreRol: targetName,
+            permisoGestionarRoles: !isDeny
+          }
+        }]
+      };
+    }
+  }
+
+  // 2. ANÁLISIS DE INTENCIÓN VISUAL DE SEPARACIÓN EN LISTA LATERAL (HOIST)
+  if (promptLower.includes('separado') || promptLower.includes('separados') || promptLower.includes('lista de miembros') || promptLower.includes('barra lateral')) {
+    const isDeny = promptLower.includes('no aparezca') || promptLower.includes('no se muestre') || promptLower.includes('no ');
+    const roleMatch = prompt.match(/(?:rol\s+de?\s*@?|el\s+rol\s+@?)([a-záéíóúñ0-9_\-\s]+?)(?:\s+no|\s+que|\s+aparezca|\s+se|$)/i);
+    const targetName = roleMatch ? roleMatch[1].trim() : 'el goat';
     return {
       type: 'tools',
       functionCalls: [{
@@ -219,13 +245,13 @@ async function processAgenticAI(prompt, username = 'Usuario', guildRoles = [], g
         args: {
           accion: 'editar',
           nombreRol: targetName,
-          permisoGestionarRoles: !isDeny
+          separarMiembros: !isDeny
         }
       }]
     };
   }
 
-  // Cambiar Nombre del Servidor
+  // 3. ANÁLISIS DE INTENCIÓN DE NOMBRE DE SERVIDOR
   if (promptLower.includes('nombre del servidor') || promptLower.includes('nombre de servidor') || promptLower.includes('servidor por') || promptLower.includes('servidor a')) {
     const nameMatch = prompt.match(/(?:nombre\s+del?\s+servidor\s+(?:por|a)\s+|servidor\s+(?:por|a)\s+)([a-záéíóúñ0-9_\-\s]+)/i);
     const newName = nameMatch ? nameMatch[1].trim() : 'Kite';
@@ -242,7 +268,7 @@ async function processAgenticAI(prompt, username = 'Usuario', guildRoles = [], g
     };
   }
 
-  // Cambiar Apodo de Usuario
+  // 4. ANÁLISIS DE INTENCIÓN DE APODOS DE USUARIO
   if (promptLower.includes('nombre del usuario') || promptLower.includes('apodo') || promptLower.includes('nickname')) {
     const userMatch = prompt.match(/(?:nombre\s+del\s+usuario\s+@?|apodo\s+de\s+@?)([a-záéíóúñ0-9_\-\s]+?)(?:\s+a\s+|\s+por\s+|$)/i);
     const newNickMatch = prompt.match(/(?:\s+a\s+|\s+por\s+)([a-záéíóúñ0-9_\-\s]+)$/i);
@@ -263,7 +289,7 @@ async function processAgenticAI(prompt, username = 'Usuario', guildRoles = [], g
     };
   }
 
-  // Cambiar Color de Rol
+  // 5. ANÁLISIS DE INTENCIÓN DE COLORES
   if (promptLower.includes('color')) {
     const roleMatch = prompt.match(/(?:rol\s+@?|el\s+rol\s+@?)([a-záéíóúñ0-9_\-\s]+?)(?:\s+a\s+|\s+sea|\s+de|\s+color|$)/i);
     const colorMatch = prompt.match(/(?:color\s+|a\s+)([a-záéíóúñ0-9_\-\s]+)$/i);
