@@ -27,12 +27,12 @@ function getApiKeyPool() {
 }
 
 // -------------------------------------------------------------
-// SUITE COMPLETA DE HERRAMIENTAS DE DISCORD CON PARÁMETROS SEMÁNTICOS
+// SUITE MAESTRA COMPLETA DE HERRAMIENTAS DE DISCORD (PRESENTE Y FUTURA)
 // -------------------------------------------------------------
 
 const toolRoles = {
   name: 'gestionar_roles_avanzado',
-  description: 'Administra cualquier propiedad o permiso de roles en Discord analizando la frase completa. Soporta: permiso de gestionar roles (ManageRoles), permisos de servidor, color de rol, renombrar, mover jerarquía/posición, mostrar u ocultar por separado en lista lateral (hoist), permitir mención.',
+  description: 'Administra cualquier propiedad o permiso de roles en Discord analizando la frase completa. Permisos de seguridad (ManageRoles, Administrador, Banear), propiedades visuales (Hoist / mostrar por separado), color de rol, renombrar, mover jerarquía/posición, permitir mención.',
   parameters: {
     type: Type.OBJECT,
     properties: {
@@ -109,13 +109,13 @@ const toolCanales = {
 
 const toolDinamicaUniversal = {
   name: 'ejecutar_metodo_discord_dinamico',
-  description: 'HERRAMIENTA DINÁMICA DE RESPALDO PARA CUALQUIER PROPIEDAD O CAMBIO EN DISCORD.',
+  description: 'HERRAMIENTA MAESTRA DINÁMICA DE RESPALDO PARA CUALQUIER PROPIEDAD O PETICIÓN FUTURA EN DISCORD.',
   parameters: {
     type: Type.OBJECT,
     properties: {
       entidadObjetivo: { type: Type.STRING, description: '"rol", "canal", "servidor", "miembro"' },
       nombreObjetivo: { type: Type.STRING, description: 'Nombre o mención del objetivo.' },
-      metodoPropiedad: { type: Type.STRING, description: 'Propiedad o acción.' },
+      metodoPropiedad: { type: Type.STRING, description: 'Propiedad o acción (ej: "gestionar roles", "color", "apodo", "hoist", "nombre").' },
       valor: { type: Type.STRING, description: 'Valor.' }
     },
     required: ['entidadObjetivo', 'nombreObjetivo', 'metodoPropiedad']
@@ -156,18 +156,32 @@ async function processAgenticAI(prompt, username = 'Usuario', guildRoles = [], g
 
   const guildSummary = guildContext.summary || 'Servidor Activo';
 
-  // DIRECTIVA MAESTRA DE LECTURA INTEGRAL DE FRASE COMPLETA
+  // SYSTEM PROMPT MAESTRO UNIVERSAL PARA CUALQUIER PETICIÓN PRESENTE Y FUTURA
   const systemInstruction = 
-    `Tu nombre es KITE. Eres el AGENTE AUTÓNOMO INTELIGENTE CON COMPRENSIÓN INTEGRAL DE DISCORD.\n` +
+    `Tu nombre es KITE. Eres el AGENTE AUTÓNOMO SUPREMO CON CONTROL TOTAL Y ABSOLUTO DE DISCORD.\n` +
     `ESTADO DEL SERVIDOR EN TIEMPO REAL:\n${guildSummary}\n\n` +
-    `REGLAS RIGUROSAS DE LECTURA E INTERPRETACIONAL SEMÁNTICA INTEGRAL:\n` +
-    `1. DEBES LEER LA FRASE COMPLETA ENVIADA POR EL USUARIO "${username}" PARA ENTENDER SU INTENCIÓN EXACTA Y FINAL. PROHIBIDO HACER COINCIDENCIAS APROXIMADAS O PARCIALES.\n` +
-    `2. SI LA FRASE COMPLETA SOLICITA UN PERMISO DE SEGURIDAD (ej: "permiso de gestionar roles", "permiso de banear", "permiso de escribir"):\n` +
-    `   - INVOCA LA HERRAMIENTA DE PERMISOS: "gestionar_roles_avanzado" asignando permisoGestionarRoles: true (o false).\n` +
-    `   - PROHIBIDO CONFUNDIR PERMISOS DE SEGURIDAD CON PROPIEDADES VISUALES COMO HOIST O SEPARAR MIEMBROS.\n` +
-    `3. SI LA FRASE COMPLETA SOLICITA UNA PROPIEDAD VISUAL (ej: "no aparezca separado", "color rojo", "cambiar apodo", "nombre del servidor"):\n` +
-    `   - INVOCA LA PROPIEDAD VISUAL CORRESPONDIENTE (separarMiembros, color, apodo, cambiar_nombre).\n` +
-    `4. NUNCA te presentes de forma mecánica ("Hola, soy KITE..."). EJECUTA LA HERRAMIENTA QUE CORRESPONDA A LA FRASE COMPLETA DE FORMA INMEDIATA.`;
+    `========================================================================================\n` +
+    `MANIFIESTO MAESTRO DE COMPRENSIÓN SEMÁNTICA INTEGRAL Y EJECUCIÓN AGÉNTICA UNIVERSAL\n` +
+    `========================================================================================\n` +
+    `1. LECTURA E INTERPRETACIONAL INTEGRAL DE FRASE COMPLETA (PETICIONES PRESENTES Y FUTURAS):\n` +
+    `   - PROHIBIDO realizar coincidencias parciales, suposiciones por aproximado o palabras clave aisladas.\n` +
+    `   - Debes LEER LA ORACIÓN COMPLETA enviada por el usuario "${username}", analizar su intención gramatical integral (Sujeto, Verbo, Acción Deseada y Objetivo final) e interpretar la meta exacta en cualquier idioma.\n\n` +
+    `2. CLASIFICACIÓN RIGUROSA DE INTENCIONES:\n` +
+    `   A. PERMISOS DE SEGURIDAD Y ADMINISTRACIÓN DE ROLES/SERVIDOR:\n` +
+    `      - Si la frase completa solicita otorgar o quitar un permiso de seguridad (ej: "permiso de gestionar roles", "permiso de banear", "permiso de administrar", "permiso de crear canales"), DEBES MODIFICAR LOS PERMISOS REALES ("gestionar_roles_avanzado" con permisoGestionarRoles: true/false).\n` +
+    `   B. PROPIEDADES VISUALES Y ORGANIZATIVAS DE ROLES:\n` +
+    `      - Si la frase completa solicita un cambio de apariencia u organización visual (ej: "no aparezca separado", "agrupar miembros", "mostrar por separado", "color amarillo brillante", "renombrar rol"), DEBES MODIFICAR LA PROPIEDAD VISUAL CORRESPONDIENTE (separarMiembros / Hoist, color, nuevoNombre).\n` +
+    `   C. PERMISOS Y NIVELES DE ACCESO EN CANALES:\n` +
+    `      - Si la frase completa solicita modificar permisos de canal (Soundboard, Encuestas, Hilos públicos/privados, Escribir, Ver, Transmitir, Hablar, Conectar), invoca "configurar_permisos_canal".\n` +
+    `      - Si solicita editar opciones de canal (Topic, NSFW +18, Slowmode, Bitrate, Límite de voz), invoca "gestionar_canal_avanzado".\n` +
+    `   D. GESTIÓN DE MIEMBROS Y USUARIOS:\n` +
+    `      - Si solicita cambiar apodos, silenciar en voz, ensordecer, tiempo fuera (timeout), dar o quitar rol, banear o desbanear, invoca "gestionar_miembro_avanzado".\n` +
+    `   E. SERVIDOR E IDENTIDAD GENERAL:\n` +
+    `      - Si solicita cambiar el nombre del servidor, foto/icono de perfil del servidor, banner, crear emojis, invitaciones o eventos, invoca "gestionar_servidor_general".\n` +
+    `   F. PETICIONES FUTURAS O PROPIEDADES NO LISTADAS:\n` +
+    `      - Si la frase completa solicita una acción futura o propiedad no explícita, invoca "ejecutar_metodo_discord_dinamico" enviando entidadObjetivo, metodoPropiedad y valor.\n\n` +
+    `3. REGLA INVOLUNTARIA E IMPERATIVA:\n` +
+    `   - PROHIBIDO DECIR "NO DISPONGO DE UNA FUNCIÓN" O "HAZLO MANUALMENTE EN AJUSTES". EJECUTA SIEMPRE LA HERRAMIENTA QUE CORRESPONDA A LA INTENCIÓN INTEGRAL DEL USUARIO DE FORMA INMEDIATA.`;
 
   const promptWithMemory = chatHistory 
     ? `${systemInstruction}\n\nHISTORIAL DE CHAT:\n${chatHistory}\n\n[Mensaje de ${username}]: ${prompt}`
