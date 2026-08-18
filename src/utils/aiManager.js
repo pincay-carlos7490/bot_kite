@@ -38,6 +38,40 @@ async function processAgenticAI(prompt, username = 'Usuario', guildRoles = [], g
   const tools = [{
     functionDeclarations: [
       {
+        name: 'configurar_permisos_canal',
+        description: 'Modifica de forma AGÉNTICA Y UNIVERSAL cualquier permiso de canal en Discord (UseSoundboard, SendPolls, CreatePublicThreads, CreatePrivateThreads, Stream, Speak, Connect, SendMessages, ViewChannel, ManageMessages, AddReactions, etc.) para cualquier rol o @everyone.',
+        parameters: {
+          type: Type.OBJECT,
+          properties: {
+            nombreCanal: { type: Type.STRING, description: 'Nombre o mención del canal a configurar.' },
+            rolesObjetivo: { type: Type.STRING, description: 'Roles a los cuales modificar permisos (ej: "sobrevivientes", "everyone", "moderadores", "bots", "todos", "mute").' },
+            permisosLibres: {
+              type: Type.STRING,
+              description: 'Cadena de texto o pares clave-valor de permisos a modificar (ej: "UseSoundboard: true", "SendPolls: false", "ViewChannel: false").'
+            },
+            permitirUsarPanelDeSonidos: { type: Type.BOOLEAN, description: 'True para permitir usar el panel de sonidos / soundboard (Verde ✅), False para prohibir (Rojo ❌).' },
+            permitirSonidosExternos: { type: Type.BOOLEAN, description: 'True para permitir usar sonidos externos de soundboard, False para prohibir.' },
+            permitirTransmitir: { type: Type.BOOLEAN, description: 'True para permitir transmitir en vivo / compartir pantalla (Stream), False para denegar.' },
+            permitirHablar: { type: Type.BOOLEAN, description: 'True para permitir hablar en voz (Speak), False para denegar.' },
+            permitirConectar: { type: Type.BOOLEAN, description: 'True para permitir conectar a canal de voz (Connect), False para denegar.' },
+            permitirCrearEncuestas: { type: Type.BOOLEAN, description: 'True para permitir crear encuestas (Verde ✅), False para prohibir/denegar crear encuestas (Rojo ❌).' },
+            permitirCrearHilosPublicos: { type: Type.BOOLEAN, description: 'True para permitir crear hilos públicos (Verde ✅), False para prohibir/denegar (Rojo ❌).' },
+            permitirCrearHilosPrivados: { type: Type.BOOLEAN, description: 'True para permitir hilos privados, False para denegar.' },
+            permitirMensajesEnHilos: { type: Type.BOOLEAN, description: 'True para permitir enviar mensajes en hilos, False para denegar.' },
+            permitirEscribir: { type: Type.BOOLEAN, description: 'True para permitir enviar mensajes (Verde ✅), False para denegar (Rojo ❌).' },
+            permitirVer: { type: Type.BOOLEAN, description: 'True para permitir ver canal, False para ocultar canal.' },
+            permitirVerHistorial: { type: Type.BOOLEAN, description: 'True para ver historial de mensajes, False para denegar.' },
+            permitirArchivos: { type: Type.BOOLEAN, description: 'True para permitir archivos/imágenes, False para prohibir.' },
+            permitirReacciones: { type: Type.BOOLEAN, description: 'True para permitir reacciones, False para denegar.' },
+            permitirEmojisExternos: { type: Type.BOOLEAN, description: 'True para permitir emojis externos, False para denegar.' },
+            permitirMencionarEveryone: { type: Type.BOOLEAN, description: 'True para permitir mencionar @everyone, False para denegar.' },
+            permitirBorrarMensajes: { type: Type.BOOLEAN, description: 'True para permitir borrar/gestionar mensajes, False para prohibir.' },
+            permitirCrearInvitacion: { type: Type.BOOLEAN, description: 'True para permitir crear invitaciones, False para denegar.' }
+          },
+          required: ['nombreCanal']
+        }
+      },
+      {
         name: 'gestionar_servidor_general',
         description: 'Herramienta universal de administración del servidor: cambiar el icono/foto del servidor, cambiar nombre del servidor, crear emoji personalizado, cambiar canal AFK, etc.',
         parameters: {
@@ -77,36 +111,6 @@ async function processAgenticAI(prompt, username = 'Usuario', guildRoles = [], g
             permitirVoz: { type: Type.BOOLEAN, description: 'True para permitir unirse a voz, False para prohibir unirse a voz (Rojo ❌).' }
           },
           required: ['accion', 'nombreRol']
-        }
-      },
-      {
-        name: 'configurar_permisos_canal',
-        description: 'Modifica de forma inteligente CUALQUIER permiso de canal en Discord (usar panel de sonidos / soundboard, sonidos externos, transmitir en vivo, hablar, conectar, crear encuestas, escribir, hilos públicos, hilos privados, ver canal, imágenes, reacciones, emojis externos, menciones, borrar mensajes, crear invitaciones, etc.) para cualquier rol o @everyone.',
-        parameters: {
-          type: Type.OBJECT,
-          properties: {
-            nombreCanal: { type: Type.STRING, description: 'Nombre o mención del canal a configurar (ej: "#Reunion" o "Reunion" o "memes").' },
-            rolesObjetivo: { type: Type.STRING, description: 'Roles a los cuales modificar permisos (ej: "sobrevivientes", "everyone", "moderadores", "bots", "todos", "mute").' },
-            permitirUsarPanelDeSonidos: { type: Type.BOOLEAN, description: 'True para permitir usar el panel de sonidos / soundboard (Verde ✅), False para prohibir (Rojo ❌).' },
-            permitirSonidosExternos: { type: Type.BOOLEAN, description: 'True para permitir usar sonidos externos de soundboard, False para prohibir.' },
-            permitirTransmitir: { type: Type.BOOLEAN, description: 'True para permitir transmitir en vivo / compartir pantalla (Stream), False para denegar.' },
-            permitirHablar: { type: Type.BOOLEAN, description: 'True para permitir hablar en voz (Speak), False para denegar.' },
-            permitirConectar: { type: Type.BOOLEAN, description: 'True para permitir conectar a canal de voz (Connect), False para denegar.' },
-            permitirCrearEncuestas: { type: Type.BOOLEAN, description: 'True para permitir crear encuestas (Verde ✅), False para prohibir/denegar crear encuestas (Rojo ❌).' },
-            permitirCrearHilosPublicos: { type: Type.BOOLEAN, description: 'True para permitir crear hilos públicos (Verde ✅), False para prohibir/denegar (Rojo ❌).' },
-            permitirCrearHilosPrivados: { type: Type.BOOLEAN, description: 'True para permitir hilos privados, False para denegar.' },
-            permitirMensajesEnHilos: { type: Type.BOOLEAN, description: 'True para permitir enviar mensajes en hilos, False para denegar.' },
-            permitirEscribir: { type: Type.BOOLEAN, description: 'True para permitir enviar mensajes (Verde ✅), False para denegar (Rojo ❌).' },
-            permitirVer: { type: Type.BOOLEAN, description: 'True para permitir ver canal, False para ocultar canal.' },
-            permitirVerHistorial: { type: Type.BOOLEAN, description: 'True para ver historial de mensajes, False para denegar.' },
-            permitirArchivos: { type: Type.BOOLEAN, description: 'True para permitir archivos/imágenes, False para prohibir.' },
-            permitirReacciones: { type: Type.BOOLEAN, description: 'True para permitir reacciones, False para denegar.' },
-            permitirEmojisExternos: { type: Type.BOOLEAN, description: 'True para permitir emojis externos, False para denegar.' },
-            permitirMencionarEveryone: { type: Type.BOOLEAN, description: 'True para permitir mencionar @everyone, False para denegar.' },
-            permitirBorrarMensajes: { type: Type.BOOLEAN, description: 'True para permitir borrar/gestionar mensajes, False para prohibir.' },
-            permitirCrearInvitacion: { type: Type.BOOLEAN, description: 'True para permitir crear invitaciones, False para denegar.' }
-          },
-          required: ['nombreCanal']
         }
       },
       {
@@ -234,12 +238,12 @@ async function processAgenticAI(prompt, username = 'Usuario', guildRoles = [], g
   const guildSummary = guildContext.summary || 'Servidor Activo';
 
   const systemInstruction = 
-    `Tu nombre es KITE. Eres el Agente Autónomo Administrador Absoluto de Discord con PODER COMPLETO Y TOTAL SOBRE EL SERVIDOR.\n` +
+    `Tu nombre es KITE. Eres el Agente Autónomo Administrador Absoluto de Discord con PODER Y ACCESO COMPLETO Y TOTAL SOBRE EL SERVIDOR.\n` +
     `ESTADO ACTUAL DEL SERVIDOR:\n${guildSummary}\n\n` +
     `ERES UN AGENTE ADMINISTRADOR TOTAL (CERO LIMITACIONES):\n` +
     `1. NUNCA te presentes de forma mecánica (PROHIBIDO decir "Hola, soy KITE...").\n` +
-    `2. TIENES HERRAMIENTAS PARA TODO: Panel de sonidos (soundboard), transmitir en vivo, hablar, conectar, cambiar foto/icono del servidor, cambiar el nombre del servidor, crear emojis, cambiar apodos, silenciar en voz, crear y configurar roles, crear y editar canales, modificar permisos, controlar música, etc.\n` +
-    `3. Si el usuario "${username}" te pide activar/permitir el panel de sonidos (soundboard), INVOCA "configurar_permisos_canal" asignando "permitirUsarPanelDeSonidos": true.\n` +
+    `2. TIENES HERRAMIENTAS PARA ABSOLUTAMENTE TODO EN DISCORD (panel de sonidos/soundboard, hablar, conectar, transmitir en vivo, crear encuestas, hilos públicos/privados, reacciones, emojis externos, borrar mensajes, cambiar fotos, apodos, etc.).\n` +
+    `3. Si el usuario "${username}" te pide modificar CUALQUIER PERMISO DE CANAL, INVOCA OBLIGATORIAMENTE "configurar_permisos_canal" asignando las propiedades exactas.\n` +
     `4. REGLA DE NO DUPLICACIÓN: Si lees en el HISTORIAL que ya se creó un rol o canal, actualiza sus permisos sin duplicarlo.`;
 
   const promptWithMemory = chatHistory 
