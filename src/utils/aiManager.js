@@ -39,16 +39,18 @@ async function processAgenticAI(prompt, username = 'Usuario', guildRoles = [], g
     functionDeclarations: [
       {
         name: 'gestionar_roles_avanzado',
-        description: 'Crea, elimina o modifica cualquier rol del servidor: renombrar un rol, cambiar color, mover posición/jerarquía (mover un rol por encima o por debajo de otro rol), separar lista de miembros (hoist), permitir mención, etc.',
+        description: 'Crea, elimina o modifica cualquier propiedad de un rol en Discord: mostrar u ocultar miembros por separado en la lista lateral (hoist / separado), permitir o prohibir mención (mentionable), renombrar, cambiar color, mover jerarquía/posición.',
         parameters: {
           type: Type.OBJECT,
           properties: {
             accion: { type: Type.STRING, description: '"crear", "eliminar", "mover_jerarquia", "editar"' },
-            nombreRol: { type: Type.STRING, description: 'Nombre o mención del rol a modificar (ej: "@Bots" o "Bots").' },
+            nombreRol: { type: Type.STRING, description: 'Nombre o mención del rol a modificar (ej: "@el goat" o "el goat").' },
             rolReferencia: { type: Type.STRING, description: 'Nombre del rol de referencia para colocarlo por encima o por debajo.' },
             posicionRelativa: { type: Type.STRING, description: '"debajo" o "encima"' },
             color: { type: Type.STRING, description: 'Color del rol.' },
-            nuevoNombre: { type: Type.STRING, description: 'Nuevo nombre para el rol (ej: "ayudantes").' }
+            nuevoNombre: { type: Type.STRING, description: 'Nuevo nombre para el rol.' },
+            separarMiembros: { type: Type.BOOLEAN, description: 'True para mostrar los miembros de este rol por separado en la lista de miembros (Hoist), False para que NO aparezca separado.' },
+            permitirMencion: { type: Type.BOOLEAN, description: 'True para permitir que cualquiera mencione el rol, False para prohibir.' }
           },
           required: ['accion', 'nombreRol']
         }
@@ -131,18 +133,18 @@ async function processAgenticAI(prompt, username = 'Usuario', guildRoles = [], g
   const guildSummary = guildContext.summary || 'Servidor Activo';
 
   const systemInstruction = 
-    `Tu nombre es KITE. Eres el AGENTE AUTÓNOMO CON CONTROL Y EJECUCIÓN TOTAL DE DISCORD.\n` +
+    `Tu nombre es KITE. Eres el AGENTE AUTÓNOMO DE INTELENCIA ARTIFICIAL CON CONTROL Y EJECUCIÓN TOTAL DE DISCORD.\n` +
     `ESTADO DEL SERVIDOR:\n${guildSummary}\n\n` +
+    `REGLAS DE EJECUCIÓN:\n` +
     `1. NUNCA te presentes de forma mecánica ("Hola, soy KITE...").\n` +
-    `2. Si el usuario "${username}" te pide cambiar el nombre de un rol, INVOCA "gestionar_roles_avanzado" con accion: "editar", nombreRol: el rol original, nuevoNombre: el nuevo nombre.\n` +
-    `3. Si te piden mover la posición de un rol, INVOCA "gestionar_roles_avanzado" con accion: "mover_jerarquia".\n` +
-    `4. NUNCA le digas al usuario que haga las cosas manualmente. EJECUTA LA ACCIÓN TÚ MISMO.`;
+    `2. Si el usuario "${username}" te pide que un rol NO aparezca separado o SÍ aparezca separado en la lista de miembros (propiedad Hoist), INVOCA "gestionar_roles_avanzado" con accion: "editar", nombreRol: el rol, separarMiembros: false (o true).\n` +
+    `3. Si te piden cambiar el nombre de un rol, INVOCA "gestionar_roles_avanzado" con accion: "editar", nuevoNombre: el nombre.\n` +
+    `4. PROHIBIDO decir "no dispongo de una función". INVOCA SIEMPRE "gestionar_roles_avanzado" O "configurar_permisos_canal" PARA EJECUTAR LA ACCIÓN TÚ MISMO.`;
 
   const promptWithMemory = chatHistory 
     ? `${systemInstruction}\n\nHISTORIAL DE CHAT:\n${chatHistory}\n\n[Mensaje de ${username}]: ${prompt}`
     : `${systemInstruction}\n\n[Mensaje de ${username}]: ${prompt}`;
 
-  // Modelos compatibles oficialmente
   const modelsToTry = [
     'gemini-2.5-flash',
     'gemini-2.0-flash',
@@ -167,9 +169,7 @@ async function processAgenticAI(prompt, username = 'Usuario', guildRoles = [], g
         if (response && response.text) {
           return { type: 'chat', text: response.text };
         }
-      } catch (err) {
-        // Registro silencioso de fallback sin mostrar errores rojos innecesarios en consola
-      }
+      } catch (err) {}
     }
   }
 
@@ -178,7 +178,25 @@ async function processAgenticAI(prompt, username = 'Usuario', guildRoles = [], g
   // -------------------------------------------------------------
   const promptLower = prompt.toLowerCase();
 
-  // Renombrar rol (ej: "quiero que renombres un rol @Bot Moderador quiero que ese rol ahora se llame el goat")
+  // Opción de Separado / Hoist en la lista de miembros
+  if (promptLower.includes('separado') || promptLower.includes('separados') || promptLower.includes('lista de miembros')) {
+    const isDeny = promptLower.includes('no aparezca') || promptLower.includes('no se muestre') || promptLower.includes('no ');
+    const roleMatch = prompt.match(/(?:rol\s+de?\s*@?|el\s+rol\s+@?)([a-záéíóúñ0-9_\-\s]+?)(?:\s+no|\s+que|\s+aparezca|\s+se|$)/i);
+    const targetName = roleMatch ? roleMatch[1].trim() : 'el goat';
+    return {
+      type: 'tools',
+      functionCalls: [{
+        name: 'gestionar_roles_avanzado',
+        args: {
+          accion: 'editar',
+          nombreRol: targetName,
+          separarMiembros: !isDeny
+        }
+      }]
+    };
+  }
+
+  // Renombrar rol
   if (promptLower.includes('renombres') || promptLower.includes('renombrar') || promptLower.includes('nombre del rol') || promptLower.includes('nombre de rol') || promptLower.includes('cambiale el nombre') || promptLower.includes('se llame')) {
     const renameMatch = prompt.match(/(?:renombres\s+(?:un\s+)?rol\s+@?|nombre\s+del?\s*@?|cambiale\s+el\s+nombre\s+del?\s*@?)([a-záéíóúñ0-9_\-\s]+)\s+(?:por\s+el\s+nombre\s+|se\s+llame\s+|por\s+)?([a-záéíóúñ0-9_\-\s]+)/i);
     if (renameMatch) {

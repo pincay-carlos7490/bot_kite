@@ -80,7 +80,7 @@ module.exports = {
           const name = fn.name;
           const args = fn.args || {};
 
-          // 0. GESTIONAR ROLES AVANZADO (RENOMBRAR ROL / MOVER JERARQUÍA)
+          // 0. GESTIONAR ROLES AVANZADO (RENOMBRAR, MOVER JERARQUÍA, SEPARAR MIEMBROS - HOIST)
           if (name === 'gestionar_roles_avanzado') {
             if (!message.member.permissions.has(PermissionFlagsBits.ManageRoles) &&
                 !message.member.permissions.has(PermissionFlagsBits.Administrator)) {
@@ -93,6 +93,24 @@ module.exports = {
 
             if (resTarget.status === 'found') {
               const targetRole = resTarget.role;
+
+              // Cambiar visibilidad de separado en lista de miembros (Hoist)
+              if (typeof args.separarMiembros === 'boolean') {
+                try {
+                  await targetRole.setHoist(args.separarMiembros, `Por orden de ${message.author.tag}`);
+                  const embed = new EmbedBuilder()
+                    .setColor(targetRole.color || '#57F287')
+                    .setTitle('🎭 Configuración de Rol Actualizada')
+                    .setDescription(`El rol **${targetRole.name}** (${targetRole}) ahora ${args.separarMiembros ? '**se muestra por separado** en la lista de miembros.' : '**NO se muestra por separado** (agrupado normalmente).'}`)
+                    .addFields({ name: '🛡️ Moderador', value: `${message.author}` })
+                    .setTimestamp();
+                  await message.channel.send({ embeds: [embed] });
+                  continue;
+                } catch (err) {
+                  await message.reply('❌ No pude cambiar la visibilidad del rol en la lista.');
+                  continue;
+                }
+              }
 
               // Renombrar rol
               if (args.nuevoNombre) {
