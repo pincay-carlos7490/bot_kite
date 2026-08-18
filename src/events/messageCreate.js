@@ -6,6 +6,53 @@ const { toggleChannelRestriction, findRoleInGuild } = require('../utils/channelR
 const { playMusicFromMessage, stopMusic, skipSong } = require('../utils/musicManager');
 const GuildConfig = require('../database/models/GuildConfig');
 
+// -------------------------------------------------------------
+// NORMALIZADOR UNIVERSAL DE COLORES PARA DISCORD.JS V14
+// -------------------------------------------------------------
+function resolveHexColor(colorStr) {
+  if (!colorStr) return '#57F287';
+  const clean = colorStr.toLowerCase().trim();
+
+  if (/^#?[0-9a-f]{6}$/i.test(clean)) {
+    return clean.startsWith('#') ? clean : `#${clean}`;
+  }
+
+  const colorMap = {
+    rojo: '#FF0000',
+    'rojo fuerte': '#CC0000',
+    'rojo oscuro': '#8B0000',
+    'rojo pasion': '#FF0033',
+    amarillo: '#FFFF00',
+    'amarillo brillante': '#FFEE00',
+    'amarillo neón': '#E3FF00',
+    dorado: '#FFD700',
+    azul: '#0000FF',
+    'azul claro': '#87CEEB',
+    'azul oscuro': '#00008B',
+    celeste: '#87CEEB',
+    verde: '#00FF00',
+    'verde claro': '#90EE90',
+    'verde oscuro': '#006400',
+    'verde esmeralda': '#50C878',
+    morado: '#800080',
+    rosa: '#FFC0CB',
+    rosado: '#FFC0CB',
+    fucsia: '#FF00FF',
+    negro: '#000001',
+    blanco: '#FFFFFF',
+    gris: '#808080',
+    naranja: '#FFA500',
+    turquesa: '#40E0D0',
+    cyan: '#00FFFF'
+  };
+
+  for (const [name, hex] of Object.entries(colorMap)) {
+    if (clean.includes(name)) return hex;
+  }
+
+  return '#FF0000';
+}
+
 module.exports = {
   name: Events.MessageCreate,
   async execute(message) {
@@ -80,54 +127,40 @@ module.exports = {
           const name = fn.name;
           const args = fn.args || {};
 
-          // 0. HERRAMIENTA DINÁMICA DE RESPALDO UNIVERSAL (CATCH-ALL)
-          if (name === 'ejecutar_metodo_discord_dinamico') {
-            const entity = (args.entidadObjetivo || '').toLowerCase();
-            const prop = (args.metodoPropiedad || '').toLowerCase();
-            const valStr = String(args.valor || '').toLowerCase();
+          // 0. GESTIONAR MIEMBRO AVANZADO (APODOS DE USUARIO, MUTE EN VOZ, TIMEOUT)
+          if (name === 'gestionar_miembro_avanzado') {
+            await message.guild.members.fetch().catch(() => null);
 
-            if (entity.includes('rol') || prop.includes('color') || prop.includes('hoist') || prop.includes('separado')) {
-              const resTarget = findRoleInGuild(args.nombreObjetivo, message.guild, message.mentions);
-              if (resTarget.status === 'found') {
-                const r = resTarget.role;
+            const userStr = (args.usuario || '').toLowerCase();
+            const targetMember = message.mentions.members.filter(m => m.id !== message.client.user.id).first() ||
+                                 message.guild.members.cache.find(m => 
+                                   m.user.username.toLowerCase().includes(userStr) ||
+                                   (m.nickname && m.nickname.toLowerCase().includes(userStr)) ||
+                                   m.displayName.toLowerCase().includes(userStr)
+                                 );
 
-                if (prop.includes('color')) {
-                  const colorMap = {
-                    'amarillo brillante': '#FFEE00',
-                    amarillo: '#FFFF00',
-                    dorado: '#FFD700',
-                    azul: '#0000FF',
-                    rojo: '#FF0000',
-                    verde: '#00FF00',
-                    morado: '#800080',
-                    rosa: '#FFC0CB'
-                  };
-                  const hex = colorMap[valStr] || valStr || '#FFFF00';
-                  try {
-                    await r.setColor(hex);
-                    const embed = new EmbedBuilder()
-                      .setColor(r.color || '#57F287')
-                      .setTitle('🎨 Color de Rol Actualizado')
-                      .setDescription(`El color del rol **${r.name}** (${r}) ha sido cambiado a **${valStr}**.`)
-                      .addFields({ name: '🛡️ Moderador', value: `${message.author}` })
-                      .setTimestamp();
-                    await message.channel.send({ embeds: [embed] });
-                    continue;
-                  } catch (e) {}
-                }
+            if (!targetMember) {
+              await message.reply(`⚠️ No pude encontrar al usuario **"${args.usuario}"** en este servidor.`);
+              continue;
+            }
 
-                const isFalse = valStr.includes('false') || cleanPrompt.toLowerCase().includes('no ');
-                try {
-                  await r.setHoist(!isFalse);
-                  const embed = new EmbedBuilder()
-                    .setColor(r.color || '#57F287')
-                    .setTitle('🎭 Configuración de Rol Actualizada (Dinámica)')
-                    .setDescription(`El rol **${r.name}** (${r}) ahora ${!isFalse ? '**se muestra por separado**' : '**NO se muestra por separado**'}.`)
-                    .addFields({ name: '🛡️ Moderador', value: `${message.author}` })
-                    .setTimestamp();
-                  await message.channel.send({ embeds: [embed] });
-                  continue;
-                } catch (e) {}
+            const actionType = (args.tipoAccion || 'apodo').toLowerCase();
+
+            if (actionType === 'apodo' || args.valor) {
+              if (!message.member.permissions.has(PermissionFlagsBits.ManageNicknames) &&
+                  !message.member.permissions.has(PermissionFlagsBits.Administrator)) {
+                await message.reply('❌ No tienes permiso de **Gestionar Apodos** para ejecutar esta acción.');
+                continue;
+              }
+
+              try {
+                const newNick = args.valor || null;
+                await targetMember.setNickname(newNick, `Por orden de ${message.author.tag}`);
+                await message.reply(`✏️ ¡Apodo cambiado con éxito! El nuevo apodo de **${targetMember.user.tag}** es **"${newNick || targetMember.user.username}"**.`);
+                continue;
+              } catch (err) {
+                await message.reply('❌ No pude cambiar el apodo de ese usuario (puede que tenga un rol de jerarquía superior al de KITE).');
+                continue;
               }
             }
           }
@@ -148,26 +181,13 @@ module.exports = {
 
               // Cambiar color del rol
               if (args.color) {
-                const colorMap = {
-                  'amarillo brillante': '#FFEE00',
-                  amarillo: '#FFFF00',
-                  dorado: '#FFD700',
-                  azul: '#0000FF',
-                  rojo: '#FF0000',
-                  verde: '#00FF00',
-                  morado: '#800080',
-                  rosa: '#FFC0CB',
-                  negro: '#000001',
-                  blanco: '#FFFFFF',
-                  gris: '#808080'
-                };
-                const colorHex = colorMap[(args.color || '').toLowerCase()] || args.color || '#FFFF00';
+                const colorHex = resolveHexColor(args.color);
                 try {
                   await targetRole.setColor(colorHex, `Por orden de ${message.author.tag}`);
                   const embed = new EmbedBuilder()
                     .setColor(colorHex)
                     .setTitle('🎨 Color de Rol Actualizado')
-                    .setDescription(`El color del rol **${targetRole.name}** (${targetRole}) ha sido cambiado exitosamente a **${args.color}**.`)
+                    .setDescription(`El color del rol **${targetRole.name}** (${targetRole}) ha sido cambiado a **${args.color}** (\`${colorHex}\`).`)
                     .addFields({ name: '🛡️ Moderador', value: `${message.author}` })
                     .setTimestamp();
                   await message.channel.send({ embeds: [embed] });
@@ -247,40 +267,6 @@ module.exports = {
               await message.reply(`⚠️ No se encontró el rol **"${roleName}"** en este servidor.`);
               continue;
             }
-          }
-
-          // 0. GESTIONAR CANAL AVANZADO
-          if (name === 'gestionar_canal_avanzado') {
-            if (!message.member.permissions.has(PermissionFlagsBits.ManageChannels) &&
-                !message.member.permissions.has(PermissionFlagsBits.Administrator)) {
-              await message.reply('❌ No tienes permiso de **Gestionar Canales** para ejecutar esta acción.');
-              continue;
-            }
-
-            const chanName = args.nombreCanal;
-            const targetChan = message.guild.channels.cache.find(c => c.name.toLowerCase() === (chanName || '').toLowerCase()) || message.channel;
-
-            if (args.nuevoNombre) {
-              await targetChan.setName(args.nuevoNombre).catch(() => null);
-            }
-            if (args.topic) {
-              await targetChan.setTopic(args.topic).catch(() => null);
-            }
-            if (typeof args.nsfw === 'boolean') {
-              await targetChan.setNSFW(args.nsfw).catch(() => null);
-            }
-            if (typeof args.modoPausadoSegundos === 'number') {
-              await targetChan.setRateLimitPerUser(args.modoPausadoSegundos).catch(() => null);
-            }
-
-            const embed = new EmbedBuilder()
-              .setColor('#3498DB')
-              .setTitle('⚙️ Configuración de Canal Actualizada')
-              .setDescription(`Se han actualizado las propiedades del canal **${targetChan}**.`)
-              .addFields({ name: '🛡️ Moderador', value: `${message.author}` })
-              .setTimestamp();
-            await message.channel.send({ embeds: [embed] });
-            continue;
           }
 
           // 0. GESTIONAR SERVIDOR GENERAL (FOTO DE PERFIL DE SERVIDOR, NOMBRE, EMOJIS)
@@ -364,52 +350,6 @@ module.exports = {
                 continue;
               } catch (err) {
                 await message.reply('❌ Ocurrió un error al crear el emoji personalizado.');
-                continue;
-              }
-            }
-          }
-
-          // 0. GESTIONAR MIEMBRO AVANZADO (APODOS, MUTE EN VOZ, TIMEOUT)
-          if (name === 'gestionar_miembro_avanzado') {
-            const actionType = args.tipoAccion;
-            const targetMember = message.mentions.members.filter(m => m.id !== message.client.user.id).first() ||
-                                 message.guild.members.cache.find(m => m.user.username.toLowerCase().includes((args.usuario || '').toLowerCase()));
-
-            if (!targetMember) {
-              await message.reply(`⚠️ No se encontró al usuario **"${args.usuario}"** en este servidor.`);
-              continue;
-            }
-
-            if (actionType === 'apodo') {
-              if (!message.member.permissions.has(PermissionFlagsBits.ManageNicknames) &&
-                  !message.member.permissions.has(PermissionFlagsBits.Administrator)) {
-                await message.reply('❌ No tienes permiso de **Gestionar Apodos** para ejecutar esta acción.');
-                continue;
-              }
-
-              try {
-                const newNick = args.valor || null;
-                await targetMember.setNickname(newNick);
-                await message.reply(`✏️ Apodo de **${targetMember.user.tag}** cambiado a **"${newNick || targetMember.user.username}"**.`);
-                continue;
-              } catch (err) {
-                await message.reply('❌ No pude cambiar el apodo de ese usuario (puede que tenga un rol superior al mío).');
-                continue;
-              }
-            }
-
-            if (actionType === 'mute_voz') {
-              if (!message.member.permissions.has(PermissionFlagsBits.MuteMembers)) {
-                await message.reply('❌ No tienes permiso de **Silenciar Miembros en Voz**.');
-                continue;
-              }
-
-              try {
-                await targetMember.voice.setMute(true, `Ordenado por ${message.author.tag}`);
-                await message.reply(`🎙️ **${targetMember.user.tag}** ha sido silenciado en el canal de voz.`);
-                continue;
-              } catch (err) {
-                await message.reply('❌ No se pudo silenciar al miembro en voz (asegúrate de que esté en un canal de voz).');
                 continue;
               }
             }
