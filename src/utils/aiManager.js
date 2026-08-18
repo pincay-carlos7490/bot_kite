@@ -142,11 +142,11 @@ async function processAgenticAI(prompt, username = 'Usuario', guildRoles = [], g
     ? `${systemInstruction}\n\nHISTORIAL DE CHAT:\n${chatHistory}\n\n[Mensaje de ${username}]: ${prompt}`
     : `${systemInstruction}\n\n[Mensaje de ${username}]: ${prompt}`;
 
-  // Lista de modelos exactos en la SDK @google/genai
+  // Modelos compatibles oficialmente
   const modelsToTry = [
     'gemini-2.5-flash',
-    'gemini-2.5-pro',
-    'gemini-2.0-flash'
+    'gemini-2.0-flash',
+    'gemini-1.5-flash'
   ];
 
   for (const key of apiKeys) {
@@ -168,7 +168,7 @@ async function processAgenticAI(prompt, username = 'Usuario', guildRoles = [], g
           return { type: 'chat', text: response.text };
         }
       } catch (err) {
-        console.log(`Key (${key.substring(0, 8)}...) - Modelo ${modelName}: ${err.message ? err.message.substring(0, 60) : ''}...`);
+        // Registro silencioso de fallback sin mostrar errores rojos innecesarios en consola
       }
     }
   }
@@ -178,9 +178,9 @@ async function processAgenticAI(prompt, username = 'Usuario', guildRoles = [], g
   // -------------------------------------------------------------
   const promptLower = prompt.toLowerCase();
 
-  // Renombrar rol (ej: "cambiale el nombre del @Bots por el nombre ayudantes")
-  if (promptLower.includes('nombre del rol') || promptLower.includes('nombre de rol') || promptLower.includes('nombre del @') || promptLower.includes('cambiale el nombre')) {
-    const renameMatch = prompt.match(/(?:nombre\s+del?\s*@?|cambiale\s+el\s+nombre\s+del?\s*@?)([a-záéíóúñ0-9_\-\s]+)\s+por\s+(?:el\s+nombre\s+)?([a-záéíóúñ0-9_\-\s]+)/i);
+  // Renombrar rol (ej: "quiero que renombres un rol @Bot Moderador quiero que ese rol ahora se llame el goat")
+  if (promptLower.includes('renombres') || promptLower.includes('renombrar') || promptLower.includes('nombre del rol') || promptLower.includes('nombre de rol') || promptLower.includes('cambiale el nombre') || promptLower.includes('se llame')) {
+    const renameMatch = prompt.match(/(?:renombres\s+(?:un\s+)?rol\s+@?|nombre\s+del?\s*@?|cambiale\s+el\s+nombre\s+del?\s*@?)([a-záéíóúñ0-9_\-\s]+)\s+(?:por\s+el\s+nombre\s+|se\s+llame\s+|por\s+)?([a-záéíóúñ0-9_\-\s]+)/i);
     if (renameMatch) {
       return {
         type: 'tools',
