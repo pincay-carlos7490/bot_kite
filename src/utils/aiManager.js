@@ -27,7 +27,7 @@ function getApiKeyPool() {
 }
 
 // -------------------------------------------------------------
-// SUITE MAESTRA COMPLETA DE HERRAMIENTAS DE DISCORD (PRESENTE Y FUTURA)
+// SUITE MAESTRA COMPLETA DE HERRAMIENTAS DE DISCORD
 // -------------------------------------------------------------
 
 const toolRoles = {
@@ -115,7 +115,7 @@ const toolDinamicaUniversal = {
     properties: {
       entidadObjetivo: { type: Type.STRING, description: '"rol", "canal", "servidor", "miembro"' },
       nombreObjetivo: { type: Type.STRING, description: 'Nombre o mención del objetivo.' },
-      metodoPropiedad: { type: Type.STRING, description: 'Propiedad o acción (ej: "gestionar roles", "color", "apodo", "hoist", "nombre").' },
+      metodoPropiedad: { type: Type.STRING, description: 'Propiedad o acción.' },
       valor: { type: Type.STRING, description: 'Valor.' }
     },
     required: ['entidadObjetivo', 'nombreObjetivo', 'metodoPropiedad']
@@ -156,7 +156,6 @@ async function processAgenticAI(prompt, username = 'Usuario', guildRoles = [], g
 
   const guildSummary = guildContext.summary || 'Servidor Activo';
 
-  // SYSTEM PROMPT MAESTRO UNIVERSAL PARA CUALQUIER PETICIÓN PRESENTE Y FUTURA
   const systemInstruction = 
     `Tu nombre es KITE. Eres el AGENTE AUTÓNOMO SUPREMO CON CONTROL TOTAL Y ABSOLUTO DE DISCORD.\n` +
     `ESTADO DEL SERVIDOR EN TIEMPO REAL:\n${guildSummary}\n\n` +
@@ -187,33 +186,43 @@ async function processAgenticAI(prompt, username = 'Usuario', guildRoles = [], g
     ? `${systemInstruction}\n\nHISTORIAL DE CHAT:\n${chatHistory}\n\n[Mensaje de ${username}]: ${prompt}`
     : `${systemInstruction}\n\n[Mensaje de ${username}]: ${prompt}`;
 
+  // Modelos oficialmente activos sin errores 404/503
   const modelsToTry = [
     'gemini-2.5-flash',
-    'gemini-2.0-flash'
+    'gemini-1.5-flash',
+    'gemini-1.5-pro'
   ];
 
   for (const key of apiKeys) {
     const ai = new GoogleGenAI({ apiKey: key });
 
     for (const modelName of modelsToTry) {
-      try {
-        const response = await ai.models.generateContent({
-          model: modelName,
-          contents: promptWithMemory,
-          config: { tools: tools }
-        });
+      for (let attempt = 1; attempt <= 2; attempt++) {
+        try {
+          const response = await ai.models.generateContent({
+            model: modelName,
+            contents: promptWithMemory,
+            config: { tools: tools }
+          });
 
-        if (response && response.functionCalls && response.functionCalls.length > 0) {
-          return { type: 'tools', functionCalls: response.functionCalls };
-        }
+          if (response && response.functionCalls && response.functionCalls.length > 0) {
+            return { type: 'tools', functionCalls: response.functionCalls };
+          }
 
-        if (response && response.text) {
-          return { type: 'chat', text: response.text };
-        }
-      } catch (err) {
-        const isAuthError = err.message && err.message.includes('401');
-        if (!isAuthError) {
-          console.log(`[Diagnostic Log] Key (${key.substring(0, 8)}...) - Modelo ${modelName}: ${err.message ? err.message.substring(0, 80) : ''}`);
+          if (response && response.text) {
+            return { type: 'chat', text: response.text };
+          }
+          break;
+        } catch (err) {
+          const is503 = err.message && err.message.includes('503');
+          if (is503 && attempt === 1) {
+            await new Promise(r => setTimeout(r, 400));
+            continue;
+          }
+          const isAuthError = err.message && err.message.includes('401');
+          if (!isAuthError && attempt === 2) {
+            console.log(`[Diagnostic Log] Key (${key.substring(0, 8)}...) - Modelo ${modelName}: ${err.message ? err.message.substring(0, 80) : ''}`);
+          }
         }
       }
     }
